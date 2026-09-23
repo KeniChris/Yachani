@@ -1,4 +1,4 @@
-package com.yachaniapi.usuario.model;
+package com.yachaniapi.usuario.entity;
 
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;

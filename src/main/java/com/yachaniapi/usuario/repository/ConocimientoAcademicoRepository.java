@@ -1,6 +1,6 @@
 package com.yachaniapi.usuario.repository;
 
-import com.yachaniapi.usuario.model.ConocimientoAcademico;
+import com.yachaniapi.usuario.entity.ConocimientoAcademico;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -10,9 +10,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.Map;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
+
 @RestController
 @RequestMapping("/estudiantes/{idUsuario}/perfil")
 public class PerfilAcademicoController {
@@ -105,35 +103,5 @@ public class PerfilAcademicoController {
                         request
                 )
         );
-    }
-
-    /**
-     * Maneja errores generados desde el servicio,
-     * como cursos repetidos o usuarios inexistentes.
-     */
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, String>> manejarError(
-            IllegalArgumentException exception) {
-
-        return ResponseEntity
-                .badRequest()
-                .body(Map.of("mensaje", exception.getMessage()));
-    }
-
-    /**
-     * Maneja los campos obligatorios o inválidos de los DTO.
-     */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, String>> manejarValidacion(
-            MethodArgumentNotValidException exception) {
-
-        String mensaje = exception.getBindingResult()
-                .getFieldErrors()
-                .getFirst()
-                .getDefaultMessage();
-
-        return ResponseEntity
-                .badRequest()
-                .body(Map.of("mensaje", mensaje));
     }
 }

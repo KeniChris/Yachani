@@ -1,4 +1,4 @@
-package com.yachaniapi.usuario.model;
+package com.yachaniapi.usuario.entity;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.PrimaryKeyJoinColumn;

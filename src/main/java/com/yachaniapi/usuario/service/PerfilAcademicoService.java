@@ -5,9 +5,12 @@ import com.yachaniapi.usuario.dto.ConocimientoAcademicoResponse;
 import com.yachaniapi.usuario.dto.PerfilAcademicoRequest;
 import com.yachaniapi.usuario.dto.PerfilAcademicoResponse;
 import com.yachaniapi.usuario.dto.PreferenciasEstudioRequest;
-import com.yachaniapi.usuario.model.ConocimientoAcademico;
-import com.yachaniapi.usuario.model.Estudiante;
-import com.yachaniapi.usuario.model.Usuario;
+import com.yachaniapi.usuario.entity.ConocimientoAcademico;
+import com.yachaniapi.usuario.entity.Estudiante;
+import com.yachaniapi.usuario.entity.Usuario;
+import com.yachaniapi.usuario.exception.UsuarioNoEncontradoException;
+import com.yachaniapi.usuario.exception.UsuarioNoEsEstudianteException;
+import com.yachaniapi.usuario.mapper.PerfilAcademicoMapper;
 import com.yachaniapi.usuario.repository.ConocimientoAcademicoRepository;
 import com.yachaniapi.usuario.repository.UsuarioRepository;
 import jakarta.transaction.Transactional;
@@ -17,19 +20,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * se gestiona aqui el perfil académico, las preferencias y los cursos registrados por el estudiante.
+ * Gestiona el perfil académico, las preferencias
+ * y los cursos registrados por el estudiante.
  */
 @Service
 public class PerfilAcademicoService {
 
     private final UsuarioRepository usuarioRepository;
     private final ConocimientoAcademicoRepository conocimientoRepository;
+    private final PerfilAcademicoMapper perfilAcademicoMapper;
 
     public PerfilAcademicoService(
             UsuarioRepository usuarioRepository,
-            ConocimientoAcademicoRepository conocimientoRepository) {
+            ConocimientoAcademicoRepository conocimientoRepository,
+            PerfilAcademicoMapper perfilAcademicoMapper) {
+
         this.usuarioRepository = usuarioRepository;
         this.conocimientoRepository = conocimientoRepository;
+        this.perfilAcademicoMapper = perfilAcademicoMapper;
     }
 
     /**
@@ -42,8 +50,13 @@ public class PerfilAcademicoService {
 
         Estudiante estudiante = buscarEstudiante(idUsuario);
 
-        estudiante.setUniversidad(request.getUniversidad().trim());
-        estudiante.setCarrera(request.getCarrera().trim());
+        estudiante.setUniversidad(
+                request.getUniversidad().trim()
+        );
+
+        estudiante.setCarrera(
+                request.getCarrera().trim()
+        );
 
         usuarioRepository.save(estudiante);
 
@@ -51,7 +64,7 @@ public class PerfilAcademicoService {
     }
 
     /**
-     * Actualiza las preferencias de estudio.
+     * Actualiza las preferencias de estudio del estudiante.
      */
     @Transactional
     public PerfilAcademicoResponse actualizarPreferencias(
@@ -70,10 +83,14 @@ public class PerfilAcademicoService {
         estudiante.setModalidadPreferida(
                 request.getModalidadPreferida().trim()
         );
+
         estudiante.setMetodoPreferido(
                 request.getMetodoPreferido().trim()
         );
-        estudiante.setTemasInteres(new ArrayList<>(temasLimpios));
+
+        estudiante.setTemasInteres(
+                new ArrayList<>(temasLimpios)
+        );
 
         usuarioRepository.save(estudiante);
 
@@ -89,12 +106,16 @@ public class PerfilAcademicoService {
             ConocimientoAcademicoRequest request) {
 
         Estudiante estudiante = buscarEstudiante(idUsuario);
+
         String curso = request.getCurso().trim();
 
-        if (conocimientoRepository
+        boolean cursoRegistrado = conocimientoRepository
                 .existsByEstudiante_IdUsuarioAndCursoIgnoreCase(
                         idUsuario,
-                        curso)) {
+                        curso
+                );
+
+        if (cursoRegistrado) {
             throw new IllegalArgumentException(
                     "El estudiante ya tiene registrado este curso"
             );
@@ -107,9 +128,12 @@ public class PerfilAcademicoService {
         conocimiento.setCurso(curso);
         conocimiento.setNivel(request.getNivel().trim());
 
-        conocimientoRepository.save(conocimiento);
+        ConocimientoAcademico conocimientoGuardado =
+                conocimientoRepository.save(conocimiento);
 
-        return convertirConocimiento(conocimiento);
+        return perfilAcademicoMapper.toConocimientoResponse(
+                conocimientoGuardado
+        );
     }
 
     /**
@@ -140,10 +164,13 @@ public class PerfilAcademicoService {
         boolean cambioCurso = !conocimiento.getCurso()
                 .equalsIgnoreCase(nuevoCurso);
 
-        if (cambioCurso && conocimientoRepository
+        boolean cursoRegistrado = conocimientoRepository
                 .existsByEstudiante_IdUsuarioAndCursoIgnoreCase(
                         idUsuario,
-                        nuevoCurso)) {
+                        nuevoCurso
+                );
+
+        if (cambioCurso && cursoRegistrado) {
             throw new IllegalArgumentException(
                     "El estudiante ya tiene registrado este curso"
             );
@@ -152,9 +179,12 @@ public class PerfilAcademicoService {
         conocimiento.setCurso(nuevoCurso);
         conocimiento.setNivel(request.getNivel().trim());
 
-        conocimientoRepository.save(conocimiento);
+        ConocimientoAcademico conocimientoActualizado =
+                conocimientoRepository.save(conocimiento);
 
-        return convertirConocimiento(conocimiento);
+        return perfilAcademicoMapper.toConocimientoResponse(
+                conocimientoActualizado
+        );
     }
 
     /**
@@ -162,24 +192,26 @@ public class PerfilAcademicoService {
      */
     @Transactional
     public PerfilAcademicoResponse consultarPerfil(Long idUsuario) {
+
         Estudiante estudiante = buscarEstudiante(idUsuario);
+
         return construirRespuesta(estudiante);
     }
 
     /**
-     * se busca al usuario y comprueba que sea estudiante.
+     * Busca al usuario y comprueba que sea estudiante.
      */
     private Estudiante buscarEstudiante(Long idUsuario) {
 
         Usuario usuario = usuarioRepository.findById(idUsuario)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "El usuario no existe"
+                        new UsuarioNoEncontradoException(
+                                "Usuario no encontrado"
                         )
                 );
 
         if (!(usuario instanceof Estudiante estudiante)) {
-            throw new IllegalArgumentException(
+            throw new UsuarioNoEsEstudianteException(
                     "El usuario indicado no es un estudiante"
             );
         }
@@ -188,45 +220,20 @@ public class PerfilAcademicoService {
     }
 
     /**
-     * Construye la respuesta completa del perfil.
+     * Obtiene los cursos y prepara la respuesta completa del perfil.
      */
     private PerfilAcademicoResponse construirRespuesta(
             Estudiante estudiante) {
 
-        List<ConocimientoAcademicoResponse> conocimientos =
+        List<ConocimientoAcademico> conocimientos =
                 conocimientoRepository
                         .findByEstudiante_IdUsuarioOrderByCursoAsc(
                                 estudiante.getIdUsuario()
-                        )
-                        .stream()
-                        .map(this::convertirConocimiento)
-                        .toList();
+                        );
 
-        return new PerfilAcademicoResponse(
-                estudiante.getIdUsuario(),
-                estudiante.getNombres(),
-                estudiante.getApellidos(),
-                estudiante.getCorreo(),
-                estudiante.getUniversidad(),
-                estudiante.getCarrera(),
-                estudiante.getModalidadPreferida(),
-                estudiante.getMetodoPreferido(),
-                new ArrayList<>(estudiante.getTemasInteres()),
+        return perfilAcademicoMapper.toPerfilResponse(
+                estudiante,
                 conocimientos
-        );
-    }
-
-    /**
-     * Toma los datos del conocimiento académico guardado
-     * y prepara la información que se devolverá al usuario.
-     */
-    private ConocimientoAcademicoResponse convertirConocimiento(
-            ConocimientoAcademico conocimiento) {
-
-        return new ConocimientoAcademicoResponse(
-                conocimiento.getIdConocimiento(),
-                conocimiento.getCurso(),
-                conocimiento.getNivel()
         );
     }
 }
