@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.yachaniapi.usuario.exception.ArchivoResumenInvalidoException;
+import com.yachaniapi.usuario.exception.ResumenNoEncontradoException;
 
 import java.util.Map;
 
@@ -83,6 +85,27 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> manejarArgumentoInvalido(
             IllegalArgumentException exception) {
+
+        return ResponseEntity.badRequest()
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+    /**
+     * Devuelve un error cuando no se encuentra el resumen
+     */
+    @ExceptionHandler(ResumenNoEncontradoException.class)
+    public ResponseEntity<Map<String, String>> manejarResumenNoEncontrado(
+            ResumenNoEncontradoException exception) {
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+
+    /**
+     * Devuelve un error cuando el archivo no cumple las condiciones.
+     */
+    @ExceptionHandler(ArchivoResumenInvalidoException.class)
+    public ResponseEntity<Map<String, String>> manejarArchivoInvalido(
+            ArchivoResumenInvalidoException exception) {
 
         return ResponseEntity.badRequest()
                 .body(Map.of("mensaje", exception.getMessage()));
