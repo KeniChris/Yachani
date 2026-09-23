@@ -3,9 +3,12 @@ package com.yachaniapi.usuario.service;
 import com.yachaniapi.usuario.dto.LoginRequest;
 import com.yachaniapi.usuario.dto.RegistroRequest;
 import com.yachaniapi.usuario.dto.UsuarioResponse;
-import com.yachaniapi.usuario.model.Estudiante;
-import com.yachaniapi.usuario.model.Tutor;
-import com.yachaniapi.usuario.model.Usuario;
+import com.yachaniapi.usuario.entity.Estudiante;
+import com.yachaniapi.usuario.entity.Tutor;
+import com.yachaniapi.usuario.entity.Usuario;
+import com.yachaniapi.usuario.exception.CorreoDuplicadoException;
+import com.yachaniapi.usuario.exception.CredencialesIncorrectasException;
+import com.yachaniapi.usuario.mapper.UsuarioMapper;
 import com.yachaniapi.usuario.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,11 +18,16 @@ public class AuthService {
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UsuarioMapper usuarioMapper;
 
-    public AuthService(UsuarioRepository usuarioRepository,
-                       PasswordEncoder passwordEncoder) {
+    public AuthService(
+            UsuarioRepository usuarioRepository,
+            PasswordEncoder passwordEncoder,
+            UsuarioMapper usuarioMapper) {
+
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
+        this.usuarioMapper = usuarioMapper;
     }
 
     /**
@@ -29,22 +37,26 @@ public class AuthService {
 
         validarRegistro(request);
 
-        String correo = request.getCorreo().trim().toLowerCase();
+        String correo = request.getCorreo()
+                .trim()
+                .toLowerCase();
 
         // Evita registrar dos cuentas con el mismo correo.
         if (usuarioRepository.existsByCorreoIgnoreCase(correo)) {
-            throw new IllegalArgumentException(
-                    "El correo ya se encuentra registrado"
+            throw new CorreoDuplicadoException(
+                    "El correo ya está registrado"
             );
         }
 
         Usuario usuario;
 
-        // Crea la clase correspondiente al tipo seleccionado.
+        // Crea la entidad según el tipo de usuario seleccionado.
         if ("ESTUDIANTE".equalsIgnoreCase(request.getTipoUsuario())) {
             usuario = new Estudiante();
+
         } else if ("TUTOR".equalsIgnoreCase(request.getTipoUsuario())) {
             usuario = new Tutor();
+
         } else {
             throw new IllegalArgumentException(
                     "El tipo de usuario debe ser ESTUDIANTE o TUTOR"
@@ -55,14 +67,14 @@ public class AuthService {
         usuario.setApellidos(request.getApellidos().trim());
         usuario.setCorreo(correo);
 
-        // La contraseña nunca se guarda directamente.
+        // La contraseña se guarda cifrada mediante BCrypt.
         usuario.setContrasenaHash(
                 passwordEncoder.encode(request.getContrasena())
         );
 
         Usuario usuarioGuardado = usuarioRepository.save(usuario);
 
-        return crearRespuesta(
+        return usuarioMapper.toResponse(
                 usuarioGuardado,
                 "Usuario registrado correctamente"
         );
@@ -76,16 +88,23 @@ public class AuthService {
         if (request == null
                 || estaVacio(request.getCorreo())
                 || estaVacio(request.getContrasena())) {
+
             throw new IllegalArgumentException(
                     "El correo y la contraseña son obligatorios"
             );
         }
 
+        String correo = request.getCorreo()
+                .trim()
+                .toLowerCase();
+
         Usuario usuario = usuarioRepository
-                .findByCorreoIgnoreCase(request.getCorreo().trim())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Correo o contraseña incorrectos"
-                ));
+                .findByCorreoIgnoreCase(correo)
+                .orElseThrow(() ->
+                        new CredencialesIncorrectasException(
+                                "Correo o contraseña incorrectos"
+                        )
+                );
 
         boolean contrasenaCorrecta = passwordEncoder.matches(
                 request.getContrasena(),
@@ -93,12 +112,12 @@ public class AuthService {
         );
 
         if (!contrasenaCorrecta) {
-            throw new IllegalArgumentException(
+            throw new CredencialesIncorrectasException(
                     "Correo o contraseña incorrectos"
             );
         }
 
-        return crearRespuesta(
+        return usuarioMapper.toResponse(
                 usuario,
                 "Inicio de sesión correcto"
         );
@@ -115,13 +134,17 @@ public class AuthService {
                 || estaVacio(request.getCorreo())
                 || estaVacio(request.getContrasena())
                 || estaVacio(request.getTipoUsuario())) {
+
             throw new IllegalArgumentException(
                     "Todos los campos son obligatorios"
             );
         }
-        String correo = request.getCorreo().trim().toLowerCase();
 
-        // El usuario debe registrarse con su correo institucional de la UPC.
+        String correo = request.getCorreo()
+                .trim()
+                .toLowerCase();
+
+        // Solo permite correos institucionales de la UPC.
         if (!correo.matches("^[A-Za-z0-9._%+-]+@upc\\.edu\\.pe$")) {
             throw new IllegalArgumentException(
                     "El correo debe pertenecer al dominio @upc.edu.pe"
@@ -134,26 +157,5 @@ public class AuthService {
      */
     private boolean estaVacio(String valor) {
         return valor == null || valor.isBlank();
-    }
-
-    /**
-     * Convierte la entidad en la respuesta que recibirá el frontend.
-     */
-    private UsuarioResponse crearRespuesta(
-            Usuario usuario,
-            String mensaje) {
-
-        String tipoUsuario = usuario instanceof Estudiante
-                ? "ESTUDIANTE"
-                : "TUTOR";
-
-        return new UsuarioResponse(
-                usuario.getIdUsuario(),
-                usuario.getNombres(),
-                usuario.getApellidos(),
-                usuario.getCorreo(),
-                tipoUsuario,
-                mensaje
-        );
     }
 }
