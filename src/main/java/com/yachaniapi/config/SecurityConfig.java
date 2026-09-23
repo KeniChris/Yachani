@@ -21,8 +21,7 @@ public class SecurityConfig {
 
                 // Configuración de acceso a los endpoints.
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 );
 
         return http.build();
