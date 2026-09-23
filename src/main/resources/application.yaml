@@ -3,7 +3,7 @@ spring:
     name: Yachani
 
   datasource:
-    url: jdbc:postgresql://localhost:5430/yachanidb
+    url: jdbc:postgresql://localhost:5432/yachanidb
     username: postgres
     password: adminadmin
 
