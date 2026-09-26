@@ -5,6 +5,7 @@ import com.yachaniapi.usuario.exception.CredencialesIncorrectasException;
 import com.yachaniapi.usuario.exception.UsuarioNoEncontradoException;
 import com.yachaniapi.usuario.exception.UsuarioNoEsEstudianteException;
 import com.yachaniapi.grupoestudio.exception.GrupoEstudioExceptions.*;
+import com.yachaniapi.resena.exception.ResenaExceptions.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -110,6 +111,29 @@ public class GlobalExceptionHandler {
             ArchivoResumenInvalidoException exception) {
 
         return ResponseEntity.badRequest()
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+    @ExceptionHandler(UsuarioNoEsTutorException.class)
+    public ResponseEntity<Map<String, String>> manejarUsuarioNoEsTutor(
+            UsuarioNoEsTutorException exception) {
+
+        return ResponseEntity.badRequest()
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+
+    @ExceptionHandler(ResenaDuplicadaException.class)
+    public ResponseEntity<Map<String, String>> manejarResenaDuplicada(
+            ResenaDuplicadaException exception) {
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+
+    @ExceptionHandler(ResenaNoPermitidaException.class)
+    public ResponseEntity<Map<String, String>> manejarResenaNoPermitida(
+            ResenaNoPermitidaException exception) {
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(Map.of("mensaje", exception.getMessage()));
     }
 }
