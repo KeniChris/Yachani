@@ -23,15 +23,18 @@ public class SesionEstudioService {
     private final SesionEstudioRepository sesionRepository;
     private final GrupoEstudioRepository grupoEstudioRepository;
     private final SesionEstudioMapper sesionMapper;
+    private final NotificacionSesionService notificacionService;
 
     public SesionEstudioService(
             SesionEstudioRepository sesionRepository,
             GrupoEstudioRepository grupoEstudioRepository,
-            SesionEstudioMapper sesionMapper) {
+            SesionEstudioMapper sesionMapper,
+            NotificacionSesionService notificacionService) {
 
         this.sesionRepository = sesionRepository;
         this.grupoEstudioRepository = grupoEstudioRepository;
         this.sesionMapper = sesionMapper;
+        this.notificacionService = notificacionService;
     }
 
     @Transactional
@@ -92,7 +95,7 @@ public class SesionEstudioService {
         }
 
         SesionEstudio sesionActualizada = sesionRepository.save(sesion);
-
+        notificacionService.notificarCambio(sesionActualizada);
         return sesionMapper.toSesionResponse(sesionActualizada, "Se modificó correctamente");
     }
 
