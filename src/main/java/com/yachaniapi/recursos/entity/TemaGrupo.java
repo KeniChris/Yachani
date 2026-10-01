@@ -22,7 +22,11 @@ public class TemaGrupo {
     private Long idTema;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_grupo", nullable = false)
+    @JoinColumn(
+            name = "id_grupo",
+            nullable = false,
+            updatable = false
+    )
     private GrupoEstudio grupo;
 
     @Column(nullable = false, length = 100)
@@ -32,10 +36,18 @@ public class TemaGrupo {
     private String descripcion;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_creador", nullable = false)
+    @JoinColumn(
+            name = "id_creador",
+            nullable = false,
+            updatable = false
+    )
     private Usuario creador;
 
-    @Column(name = "fecha_creacion", nullable = false, updatable = false)
+    @Column(
+            name = "fecha_creacion",
+            nullable = false,
+            updatable = false
+    )
     private LocalDateTime fechaCreacion;
 
     @PrePersist
