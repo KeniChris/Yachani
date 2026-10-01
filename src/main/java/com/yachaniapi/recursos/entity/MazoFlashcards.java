@@ -21,11 +21,6 @@ public class MazoFlashcards {
     private Long idMazo;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_tema", nullable = false)
-    private TemaGrupo tema;
-
-    // Usuario permite que el autor sea estudiante o tutor.
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_creador", nullable = false)
     private Usuario creador;
 
@@ -39,14 +34,19 @@ public class MazoFlashcards {
     @Column(nullable = false, length = 20)
     private EstadoMazo estado = EstadoMazo.BORRADOR;
 
-    @Column(name = "fecha_creacion", nullable = false, updatable = false)
+    @Column(
+            name = "fecha_creacion",
+            nullable = false,
+            updatable = false
+    )
     private LocalDateTime fechaCreacion;
 
     @PrePersist
-    public void asignarValoresIniciales() {
+    public void inicializar() {
         if (estado == null) {
             estado = EstadoMazo.BORRADOR;
         }
+
         if (fechaCreacion == null) {
             fechaCreacion = LocalDateTime.now();
         }

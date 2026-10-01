@@ -135,6 +135,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResenaNoPermitidaException.class)
     public ResponseEntity<Map<String, String>> manejarResenaNoPermitida(
             ResenaNoPermitidaException exception) {
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
     
     @ExceptionHandler(SesionNoEncontradaException.class)
     public ResponseEntity<Map<String, String>> manejarSesionNoEncontrada(
@@ -165,7 +169,11 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException exception) {
 
         return ResponseEntity.badRequest()
-                .body(Map.of("mensaje", "Datos inválidos: revisa el formato de los campos"));
+                .body(Map.of(
+                        "mensaje",
+                        "Datos inválidos: revisa el formato de los campos"
+                ));
+    }
     @ExceptionHandler(UsuarioNoPerteneceAlGrupoException.class)
     public ResponseEntity<Map<String, String>> manejarUsuarioNoPerteneceAlGrupo(
             UsuarioNoPerteneceAlGrupoException exception) {
