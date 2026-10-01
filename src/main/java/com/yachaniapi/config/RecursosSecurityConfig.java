@@ -49,7 +49,11 @@ public class RecursosSecurityConfig {
                         "/grupos/*/temas",
                         "/grupos/*/temas/**",
                         "/grupos/*/materiales",
-                        "/grupos/*/materiales/**"
+                        "/grupos/*/materiales/**",
+                        "/mazos",
+                        "/mazos/**",
+                        "/grupos/*/mazos",
+                        "/grupos/*/mazos/**"
                 )
                 .authenticationProvider(provider)
                 .csrf(csrf -> csrf.disable())
