@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.yachaniapi.usuario.exception.ArchivoResumenInvalidoException;
 import com.yachaniapi.usuario.exception.ResumenNoEncontradoException;
+import com.yachaniapi.usuario.exception.UsuarioNoEsTutorException;
 
 import java.util.Map;
 
@@ -205,4 +206,5 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(Map.of("mensaje", exception.getMessage()));
     }
+
 }

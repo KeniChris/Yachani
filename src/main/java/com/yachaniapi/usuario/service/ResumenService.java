@@ -32,7 +32,7 @@ import java.util.UUID;
 @Service
 public class ResumenService {
 
-    // tamaño max de 5 MB.
+    // tamaño max de 1 MB.
     private static final long TAMANO_MAXIMO = 1L * 1024 * 1024;
 
     // archivos permitidos
