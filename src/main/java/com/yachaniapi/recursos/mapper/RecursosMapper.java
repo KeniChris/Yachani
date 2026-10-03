@@ -1,9 +1,9 @@
 package com.yachaniapi.recursos.mapper;
 
-import com.yachaniapi.recursos.dto.RecursosDTO.MaterialResponse;
-import com.yachaniapi.recursos.dto.RecursosDTO.TemaResponse;
 import com.yachaniapi.recursos.entity.MaterialEstudio;
 import com.yachaniapi.recursos.entity.TemaGrupo;
+import com.yachaniapi.recursos.dto.response.MaterialResponse;
+import com.yachaniapi.recursos.dto.response.TemaResponse;
 import org.springframework.stereotype.Component;
 
 @Component

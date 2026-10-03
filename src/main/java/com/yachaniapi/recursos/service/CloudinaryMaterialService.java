@@ -2,10 +2,10 @@ package com.yachaniapi.recursos.service;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import com.yachaniapi.recursos.dto.RecursosDTO.DescargaResponse;
 import com.yachaniapi.recursos.entity.MaterialEstudio;
 import com.yachaniapi.recursos.exception.RecursosException;
 import com.yachaniapi.recursos.service.ValidadorMaterialService.ArchivoValidado;
+import com.yachaniapi.recursos.dto.response.DescargaResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
