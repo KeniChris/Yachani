@@ -1,12 +1,12 @@
 package com.yachaniapi.recursos.service;
 
-import com.yachaniapi.recursos.dto.RecursosDTO.TemaActualizarRequest;
-import com.yachaniapi.recursos.dto.RecursosDTO.TemaRequest;
-import com.yachaniapi.recursos.dto.RecursosDTO.TemaResponse;
 import com.yachaniapi.recursos.entity.TemaGrupo;
 import com.yachaniapi.recursos.exception.RecursosException;
 import com.yachaniapi.recursos.mapper.RecursosMapper;
 import com.yachaniapi.recursos.repository.TemaGrupoRepository;
+import com.yachaniapi.recursos.dto.request.TemaActualizarRequest;
+import com.yachaniapi.recursos.dto.request.TemaRequest;
+import com.yachaniapi.recursos.dto.response.TemaResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;

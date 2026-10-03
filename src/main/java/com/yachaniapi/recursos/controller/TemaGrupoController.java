@@ -1,13 +1,16 @@
 package com.yachaniapi.recursos.controller;
 
-import com.yachaniapi.recursos.dto.RecursosDTO.*;
 import com.yachaniapi.recursos.service.TemaGrupoService;
+import com.yachaniapi.recursos.dto.request.TemaActualizarRequest;
+import com.yachaniapi.recursos.dto.request.TemaRequest;
+import com.yachaniapi.recursos.dto.response.TemaResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
 
 import java.util.List;
 
