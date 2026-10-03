@@ -92,6 +92,7 @@ public class SesionEstudioService {
 
         if (cambioFecha) {
             sesion.setRecordatorioEnviado(false);
+            notificacionService.eliminarRecordatorios(sesion);
         }
 
         SesionEstudio sesionActualizada = sesionRepository.save(sesion);
@@ -112,7 +113,7 @@ public class SesionEstudioService {
         }
 
         sesion.setEstado(ESTADO_CANCELADA);
-
+        notificacionService.eliminarRecordatorios(sesion);
         SesionEstudio sesionCancelada = sesionRepository.save(sesion);
 
         return sesionMapper.toSesionResponse(sesionCancelada, "Se canceló correctamente la sesión");

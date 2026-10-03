@@ -1,82 +1,80 @@
 package com.yachaniapi.sesion.service;
 
+import com.yachaniapi.sesion.entity.NotificacionSesion;
 import com.yachaniapi.sesion.entity.SesionEstudio;
+import com.yachaniapi.sesion.repository.NotificacionSesionRepository;
 import com.yachaniapi.usuario.entity.Estudiante;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
-import java.time.format.DateTimeFormatter;
+import com.yachaniapi.sesion.dto.NotificacionResponse;
+import com.yachaniapi.sesion.mapper.SesionEstudioMapper;
+import com.yachaniapi.usuario.entity.Usuario;
+import com.yachaniapi.usuario.exception.UsuarioNoEncontradoException;
+import com.yachaniapi.usuario.exception.UsuarioNoEsEstudianteException;
+import com.yachaniapi.usuario.repository.UsuarioRepository;
+import jakarta.transaction.Transactional;
+
+import java.util.List;
 
 @Service
 public class NotificacionSesionService {
 
-    private static final Logger log = LoggerFactory.getLogger(NotificacionSesionService.class);
-    private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-    private static final DateTimeFormatter FORMATO_HORA = DateTimeFormatter.ofPattern("HH:mm");
-
-    private final JavaMailSender mailSender;
-    private final String remitente;
+    public static final String TIPO_RECORDATORIO = "RECORDATORIO";
+    public static final String TIPO_CAMBIO = "CAMBIO";
+    private final NotificacionSesionRepository notificacionRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final SesionEstudioMapper sesionMapper;
 
     public NotificacionSesionService(
-            JavaMailSender mailSender,
-            @Value("${spring.mail.username:}") String remitente) {
+            NotificacionSesionRepository notificacionRepository,
+            UsuarioRepository usuarioRepository,
+            SesionEstudioMapper sesionMapper) {
 
-        this.mailSender = mailSender;
-        this.remitente = remitente;
+        this.notificacionRepository = notificacionRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.sesionMapper = sesionMapper;
     }
 
     public void enviarRecordatorio(SesionEstudio sesion) {
-        enviarATodos(
-                sesion,
-                "Recordatorio: sesión de " + sesion.getTema(),
-                "Te recordamos que tienes una sesión de estudio próxima."
-        );
+        guardarParaTodos(sesion, TIPO_RECORDATORIO);
     }
 
     public void notificarCambio(SesionEstudio sesion) {
-        enviarATodos(
-                sesion,
-                "Cambio en la sesión de " + sesion.getTema(),
-                "El tutor modificó una sesión de estudio. Estos son los nuevos datos."
-        );
+        guardarParaTodos(sesion, TIPO_CAMBIO);
     }
 
-    private void enviarATodos(SesionEstudio sesion, String asunto, String introduccion) {
+    public void eliminarRecordatorios(SesionEstudio sesion) {
+        notificacionRepository.deleteBySesion_IdSesionAndTipo(sesion.getIdSesion(), TIPO_RECORDATORIO);
+    }
 
-        if (remitente.isBlank()) {
-            log.warn("No hay correo configurado, no se enviaron notificaciones");
-            return;
+    @Transactional
+    public List<NotificacionResponse> listarNotificaciones(Long idEstudiante) {
+
+        Usuario usuario = usuarioRepository.findById(idEstudiante)
+                .orElseThrow(() -> new UsuarioNoEncontradoException("Estudiante no encontrado"));
+
+        if (!(usuario instanceof com.yachaniapi.usuario.entity.Estudiante)) {
+            throw new UsuarioNoEsEstudianteException("Solo los estudiantes reciben notificaciones de sesiones");
         }
+
+        return notificacionRepository
+                .findByEstudiante_IdUsuarioAndSesion_EstadoOrderByFechaCreacionDesc(
+                        idEstudiante, SesionEstudioService.ESTADO_PROGRAMADA)
+                .stream()
+                .map(sesionMapper::toNotificacionResponse)
+                .toList();
+    }
+
+    private void guardarParaTodos(SesionEstudio sesion, String tipo) {
 
         for (Estudiante estudiante : sesion.getGrupo().getParticipantes()) {
 
-            SimpleMailMessage correo = new SimpleMailMessage();
-            correo.setFrom(remitente);
-            correo.setTo(estudiante.getCorreo());
-            correo.setSubject(asunto);
-            correo.setText(armarCuerpo(estudiante, sesion, introduccion));
+            NotificacionSesion notificacion = new NotificacionSesion();
+            notificacion.setSesion(sesion);
+            notificacion.setEstudiante(estudiante);
+            notificacion.setTipo(tipo);
 
-            try {
-                mailSender.send(correo);
-            } catch (MailException e) {
-                log.error("No se pudo enviar el correo a {}", estudiante.getCorreo(), e);
-            }
+            notificacionRepository.save(notificacion);
         }
-    }
-
-    private String armarCuerpo(Estudiante estudiante, SesionEstudio sesion, String introduccion) {
-        return "Hola " + estudiante.getNombres() + ",\n\n"
-                + introduccion + "\n\n"
-                + "Grupo: " + sesion.getGrupo().getNombre() + "\n"
-                + "Tema: " + sesion.getTema() + "\n"
-                + "Fecha: " + sesion.getFechaHoraInicio().format(FORMATO_FECHA) + "\n"
-                + "Hora: " + sesion.getFechaHoraInicio().format(FORMATO_HORA) + "\n"
-                + "Lugar: " + sesion.getLugar() + "\n\n"
-                + "Equipo Yachani";
     }
 }
