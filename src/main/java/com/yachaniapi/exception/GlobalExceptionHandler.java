@@ -5,6 +5,7 @@ import com.yachaniapi.usuario.exception.CredencialesIncorrectasException;
 import com.yachaniapi.usuario.exception.UsuarioNoEncontradoException;
 import com.yachaniapi.usuario.exception.UsuarioNoEsEstudianteException;
 import com.yachaniapi.grupoestudio.exception.GrupoEstudioExceptions.*;
+import com.yachaniapi.resena.exception.ResenaExceptions.*;
 import com.yachaniapi.sesion.exception.SesionExceptions.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import com.yachaniapi.chat.exception.ChatExceptions.*;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.yachaniapi.usuario.exception.ArchivoResumenInvalidoException;
 import com.yachaniapi.usuario.exception.ResumenNoEncontradoException;
+import com.yachaniapi.usuario.exception.UsuarioNoEsTutorException;
 
 import java.util.Map;
 
@@ -115,6 +117,29 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(Map.of("mensaje", exception.getMessage()));
     }
+    @ExceptionHandler(UsuarioNoEsTutorException.class)
+    public ResponseEntity<Map<String, String>> manejarUsuarioNoEsTutor(
+            UsuarioNoEsTutorException exception) {
+
+        return ResponseEntity.badRequest()
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+
+    @ExceptionHandler(ResenaDuplicadaException.class)
+    public ResponseEntity<Map<String, String>> manejarResenaDuplicada(
+            ResenaDuplicadaException exception) {
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+
+    @ExceptionHandler(ResenaNoPermitidaException.class)
+    public ResponseEntity<Map<String, String>> manejarResenaNoPermitida(
+            ResenaNoPermitidaException exception) {
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
     
     @ExceptionHandler(SesionNoEncontradaException.class)
     public ResponseEntity<Map<String, String>> manejarSesionNoEncontrada(
@@ -145,7 +170,11 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException exception) {
 
         return ResponseEntity.badRequest()
-                .body(Map.of("mensaje", "Datos inválidos: revisa el formato de los campos"));
+                .body(Map.of(
+                        "mensaje",
+                        "Datos inválidos: revisa el formato de los campos"
+                ));
+    }
     @ExceptionHandler(UsuarioNoPerteneceAlGrupoException.class)
     public ResponseEntity<Map<String, String>> manejarUsuarioNoPerteneceAlGrupo(
             UsuarioNoPerteneceAlGrupoException exception) {
@@ -177,4 +206,5 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(Map.of("mensaje", exception.getMessage()));
     }
+
 }

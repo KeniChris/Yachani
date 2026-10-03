@@ -30,7 +30,6 @@ public class TarjetaFlashcard {
     @Column(name = "orden_tarjeta", nullable = false)
     private Integer orden;
 
-    // Al eliminarla de la vista, conservamos su referencia para el progreso.
     @Column(nullable = false)
     private boolean activa = true;
 }
