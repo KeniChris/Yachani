@@ -6,16 +6,13 @@ import com.yachaniapi.recursos.entity.*;
 import com.yachaniapi.recursos.exception.FlashcardsException;
 import com.yachaniapi.recursos.mapper.FlashcardsMapper;
 import com.yachaniapi.recursos.repository.*;
-import com.yachaniapi.usuario.entity.Usuario;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -30,7 +27,6 @@ public class FlashcardsService {
     private final AccesoFlashcardsService acceso;
     private final AccesoRecursosService accesoGrupos;
     private final FlashcardsMapper mapper;
-    private final ApplicationEventPublisher eventos;
 
     public OperacionFlashcardsResponse<MazoResponse> crear(
             MazoRequest request
@@ -149,8 +145,7 @@ public class FlashcardsService {
         tarjeta.setActiva(false);
     }
 
-    public OperacionFlashcardsResponse<MazoCompartidoResponse>
-    publicarEnGrupo(
+    public OperacionFlashcardsResponse<MazoCompartidoResponse> publicarEnGrupo(
             Long idGrupo,
             Long idMazo,
             CompartirMazoRequest request
@@ -189,20 +184,12 @@ public class FlashcardsService {
             );
         }
 
-        boolean estabaPublicado =
-                mazo.getEstado() == EstadoMazo.PUBLICADO;
-
-        var existente = compartidos
+        var compartido = compartidos
                 .findByMazo_IdMazoAndGrupo_IdGrupo(
                         idMazo,
                         idGrupo
-                );
-
-        boolean nuevo = existente.isEmpty();
-
-        var compartido = existente.orElseGet(
-                MazoCompartido::new
-        );
+                )
+                .orElseGet(MazoCompartido::new);
 
         compartido.setMazo(mazo);
         compartido.setGrupo(contexto.grupo());
@@ -211,13 +198,6 @@ public class FlashcardsService {
         mazo.setEstado(EstadoMazo.PUBLICADO);
 
         compartidos.saveAndFlush(compartido);
-
-        if (!estabaPublicado) {
-            compartidos.findByMazo_IdMazo(idMazo)
-                    .forEach(this::avisar);
-        } else if (nuevo) {
-            avisar(compartido);
-        }
 
         return new OperacionFlashcardsResponse<>(
                 "Flashcards publicadas y compartidas correctamente",
@@ -459,33 +439,6 @@ public class FlashcardsService {
                 ));
     }
 
-    private void avisar(
-            MazoCompartido compartido
-    ) {
-        var grupo = compartido.getGrupo();
-        var autor = compartido.getMazo().getCreador();
-
-        var destinatarios = Stream.concat(
-                        Stream.<Usuario>of(grupo.getCreador()),
-                        grupo.getParticipantes().stream()
-                )
-                .filter(usuario ->
-                        !usuario.getIdUsuario()
-                                .equals(autor.getIdUsuario())
-                )
-                .map(Usuario::getCorreo)
-                .distinct()
-                .toList();
-
-        eventos.publishEvent(
-                new NotificacionFlashcardsService.Publicacion(
-                        compartido.getMazo().getTitulo(),
-                        grupo.getNombre(),
-                        compartido.getTema().getNombre(),
-                        destinatarios
-                )
-        );
-    }
 
     private String limpiar(String texto) {
         return texto == null
