@@ -9,6 +9,7 @@ import com.yachaniapi.resena.exception.ResenaExceptions.*;
 import com.yachaniapi.sesion.exception.SesionExceptions.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import com.yachaniapi.chat.exception.ChatExceptions.*;
+import com.yachaniapi.notificacion.exception.NotificacionExceptions.NotificacionNoEncontradaException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -204,6 +205,14 @@ public class GlobalExceptionHandler {
             TiempoEliminacionExpiradoException exception) {
 
         return ResponseEntity.badRequest()
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+
+    @ExceptionHandler(NotificacionNoEncontradaException.class)
+    public ResponseEntity<Map<String, String>> manejarNotificacionNoEncontrada(
+            NotificacionNoEncontradaException exception) {
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("mensaje", exception.getMessage()));
     }
 
