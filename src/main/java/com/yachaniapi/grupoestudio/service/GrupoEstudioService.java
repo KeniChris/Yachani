@@ -6,6 +6,7 @@ import com.yachaniapi.grupoestudio.entity.SolicitudGrupo;
 import com.yachaniapi.grupoestudio.exception.GrupoEstudioExceptions.*;
 import com.yachaniapi.grupoestudio.repository.GrupoEstudioRepository;
 import com.yachaniapi.grupoestudio.repository.SolicitudGrupoRepository;
+import com.yachaniapi.notificacion.service.NotificacionService;
 import com.yachaniapi.usuario.entity.Estudiante;
 import com.yachaniapi.usuario.entity.Tutor;
 import com.yachaniapi.usuario.entity.Usuario;
@@ -24,14 +25,17 @@ public class GrupoEstudioService {
     private final GrupoEstudioRepository grupoRepository;
     private final SolicitudGrupoRepository solicitudRepository;
     private final UsuarioRepository usuarioRepository;
+    private final NotificacionService notificacionService;
 
     public GrupoEstudioService(
             GrupoEstudioRepository grupoRepository,
             SolicitudGrupoRepository solicitudRepository,
-            UsuarioRepository usuarioRepository) {
+            UsuarioRepository usuarioRepository,
+            NotificacionService notificacionService) {
         this.grupoRepository = grupoRepository;
         this.solicitudRepository = solicitudRepository;
         this.usuarioRepository = usuarioRepository;
+        this.notificacionService = notificacionService;
     }
 
     @Transactional
@@ -101,7 +105,7 @@ public class GrupoEstudioService {
         solicitud.setEstado("PENDIENTE");
 
         SolicitudGrupo guardada = solicitudRepository.save(solicitud);
-        System.out.println("Enviando notificación: Solicitud de " + estudiante.getNombres() + " al grupo " + grupo.getNombre());
+        notificacionService.notificarSolicitudRecibida(guardada);
         return toSolicitudResponse(guardada, "Solicitud enviada correctamente");
     }
 
@@ -124,7 +128,7 @@ public class GrupoEstudioService {
         solicitudRepository.save(solicitud);
         grupo.getParticipantes().add(solicitud.getEstudiante());
         grupoRepository.save(grupo);
-        System.out.println("Enviando notificación: Solicitud aceptada para el grupo " + grupo.getNombre());
+        notificacionService.notificarSolicitudAceptada(solicitud);
         return toSolicitudResponse(solicitud, "Solicitud aceptada");
     }
 
@@ -139,7 +143,7 @@ public class GrupoEstudioService {
 
         solicitud.setEstado("RECHAZADA");
         solicitudRepository.save(solicitud);
-        System.out.println("Enviando notificación: Solicitud rechazada para el grupo " + solicitud.getGrupo().getNombre());
+        notificacionService.notificarSolicitudRechazada(solicitud);
         return toSolicitudResponse(solicitud, "Solicitud rechazada");
     }
 
