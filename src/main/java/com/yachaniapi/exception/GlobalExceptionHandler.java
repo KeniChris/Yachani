@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.yachaniapi.usuario.exception.ArchivoResumenInvalidoException;
 import com.yachaniapi.usuario.exception.ResumenNoEncontradoException;
 import com.yachaniapi.usuario.exception.UsuarioNoEsTutorException;
+import com.yachaniapi.usuario.exception.CodigoRecuperacionInvalidoException;
+import com.yachaniapi.usuario.exception.CodigoRecuperacionExpiradoException;
+import com.yachaniapi.usuario.exception.EnvioCorreoException;
 
 import java.util.Map;
 
@@ -216,4 +219,48 @@ public class GlobalExceptionHandler {
                 .body(Map.of("mensaje", exception.getMessage()));
     }
 
+    /**
+     * Responde cuando el código ingresado no es correcto.
+     */
+    @ExceptionHandler(CodigoRecuperacionInvalidoException.class)
+    public ResponseEntity<Map<String, String>> manejarCodigoInvalido(
+            CodigoRecuperacionInvalidoException exception) {
+
+        return ResponseEntity
+                .badRequest()
+                .body(Map.of(
+                        "mensaje",
+                        exception.getMessage()
+                ));
+    }
+
+    /**
+     * Responde cuando el código superó su tiempo de validez.
+     */
+    @ExceptionHandler(CodigoRecuperacionExpiradoException.class)
+    public ResponseEntity<Map<String, String>> manejarCodigoExpirado(
+            CodigoRecuperacionExpiradoException exception) {
+
+        return ResponseEntity
+                .badRequest()
+                .body(Map.of(
+                        "mensaje",
+                        exception.getMessage()
+                ));
+    }
+
+    /**
+     * Responde cuando no fue posible enviar el correo.
+     */
+    @ExceptionHandler(EnvioCorreoException.class)
+    public ResponseEntity<Map<String, String>> manejarErrorEnvioCorreo(
+            EnvioCorreoException exception) {
+
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of(
+                        "mensaje",
+                        exception.getMessage()
+                ));
+    }
 }
