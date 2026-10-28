@@ -1,5 +1,6 @@
 package com.yachaniapi.grupoestudio.dto;
 
+import com.yachaniapi.grupoestudio.entity.TipoGrupo;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -27,8 +28,8 @@ public class GrupoEstudioDTO {
         @Min(value = 2, message = "El límite mínimo es de 2 estudiantes")
         private Integer capacidadMaxima;
 
-        @NotNull(message = "El ID del tutor creador es obligatorio")
-        private Long idTutor;
+        @NotNull(message = "El ID del usuario creador es obligatorio")
+        private Long idCreador;
     }
 
     @Getter
@@ -58,6 +59,8 @@ public class GrupoEstudioDTO {
         private Integer capacidadMaxima;
         private Integer integrantesActuales;
         private String estado;
+        private TipoGrupo tipoGrupo;
+        private Long idCreador;
         private String mensaje;
     }
 

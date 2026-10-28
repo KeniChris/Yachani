@@ -3,6 +3,7 @@ package com.yachaniapi.grupoestudio.service;
 import com.yachaniapi.grupoestudio.dto.GrupoEstudioDTO;
 import com.yachaniapi.grupoestudio.entity.GrupoEstudio;
 import com.yachaniapi.grupoestudio.entity.SolicitudGrupo;
+import com.yachaniapi.grupoestudio.entity.TipoGrupo;
 import com.yachaniapi.grupoestudio.exception.GrupoEstudioExceptions.*;
 import com.yachaniapi.grupoestudio.repository.GrupoEstudioRepository;
 import com.yachaniapi.grupoestudio.repository.SolicitudGrupoRepository;
@@ -22,6 +23,9 @@ import java.util.stream.Collectors;
 @Service
 public class GrupoEstudioService {
 
+    private static final int MAX_GRUPOS_TUTOR = 10;
+    private static final int MAX_GRUPOS_ESTUDIANTE = 5;
+
     private final GrupoEstudioRepository grupoRepository;
     private final SolicitudGrupoRepository solicitudRepository;
     private final UsuarioRepository usuarioRepository;
@@ -40,11 +44,23 @@ public class GrupoEstudioService {
 
     @Transactional
     public GrupoEstudioDTO.Response crearGrupo(GrupoEstudioDTO.CrearRequest request) {
-        Usuario usuario = usuarioRepository.findById(request.getIdTutor())
-                .orElseThrow(() -> new UsuarioNoEncontradoException("Tutor no encontrado"));
+        Usuario usuario = usuarioRepository.findById(request.getIdCreador())
+                .orElseThrow(() -> new UsuarioNoEncontradoException("Usuario no encontrado"));
 
-        if (!(usuario instanceof Tutor tutor)) {
-            throw new IllegalArgumentException("El usuario debe ser un Tutor para crear grupos");
+        TipoGrupo tipoGrupo;
+        int maxGrupos;
+        if (usuario instanceof Tutor) {
+            tipoGrupo = TipoGrupo.TUTOR;
+            maxGrupos = MAX_GRUPOS_TUTOR;
+        } else if (usuario instanceof Estudiante) {
+            tipoGrupo = TipoGrupo.ESTUDIANTES;
+            maxGrupos = MAX_GRUPOS_ESTUDIANTE;
+        } else {
+            throw new IllegalArgumentException("Solo tutores o estudiantes pueden crear grupos");
+        }
+
+        if (grupoRepository.countByCreador_IdUsuario(usuario.getIdUsuario()) >= maxGrupos) {
+            throw new IllegalArgumentException("Alcanzaste el máximo de " + maxGrupos + " grupos de estudio");
         }
 
         GrupoEstudio grupo = new GrupoEstudio();
@@ -52,8 +68,9 @@ public class GrupoEstudioService {
         grupo.setDescripcion(request.getDescripcion().trim());
         grupo.setMetodoEstudio(request.getMetodoEstudio().trim());
         grupo.setCapacidadMaxima(request.getCapacidadMaxima());
-        grupo.setEstado("Activo");
-        grupo.setCreador(tutor);
+        grupo.setEstado("ACTIVO");
+        grupo.setTipoGrupo(tipoGrupo);
+        grupo.setCreador(usuario);
 
         GrupoEstudio guardado = grupoRepository.save(grupo);
         return toResponse(guardado, "Grupo creado correctamente");
@@ -84,6 +101,10 @@ public class GrupoEstudioService {
 
         if (!(usuario instanceof Estudiante estudiante)) {
             throw new UsuarioNoEsEstudianteException("Solo los estudiantes pueden unirse a los grupos");
+        }
+
+        if (grupo.getCreador().getIdUsuario().equals(estudiante.getIdUsuario())) {
+            throw new IllegalArgumentException("El creador del grupo no puede solicitar unirse a su propio grupo");
         }
 
         int actuales = (grupo.getParticipantes() != null) ? grupo.getParticipantes().size() : 0;
@@ -156,8 +177,8 @@ public class GrupoEstudioService {
                 .collect(Collectors.toList());
     }
 
-    public List<GrupoEstudioDTO.Response> filtrarGrupos(String curso, String metodoEstudio, Integer cantidadIntegrantes) {
-        return grupoRepository.findByFiltros(curso, metodoEstudio, cantidadIntegrantes).stream()
+    public List<GrupoEstudioDTO.Response> filtrarGrupos(String curso, String metodoEstudio, Integer cantidadIntegrantes, TipoGrupo tipoGrupo) {
+        return grupoRepository.findByFiltros(curso, metodoEstudio, cantidadIntegrantes, tipoGrupo).stream()
                 .map(g -> toResponse(g, "Filtrado completado"))
                 .collect(Collectors.toList());
     }
@@ -172,6 +193,8 @@ public class GrupoEstudioService {
                 grupo.getCapacidadMaxima(),
                 actuales,
                 grupo.getEstado(),
+                grupo.getTipoGrupo(),
+                grupo.getCreador().getIdUsuario(),
                 mensaje
         );
     }
