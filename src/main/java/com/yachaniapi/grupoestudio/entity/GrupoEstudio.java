@@ -1,7 +1,7 @@
 package com.yachaniapi.grupoestudio.entity;
 
 import com.yachaniapi.usuario.entity.Estudiante;
-import com.yachaniapi.usuario.entity.Tutor;
+import com.yachaniapi.usuario.entity.Usuario;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -37,9 +37,13 @@ public class GrupoEstudio {
     @Column(nullable = false, length = 20)
     private String estado;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_grupo", nullable = false, length = 20)
+    private TipoGrupo tipoGrupo;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_tutor_creador", nullable = false)
-    private Tutor creador;
+    @JoinColumn(name = "id_creador", nullable = false)
+    private Usuario creador;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
