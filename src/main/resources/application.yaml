@@ -55,3 +55,6 @@ yachani:
   recordatorio:
     minutos-antes: 60
 
+app:
+  cors:
+    allowed-origins: http://localhost:4200
