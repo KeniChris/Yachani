@@ -1,6 +1,7 @@
 package com.yachaniapi.grupoestudio.controller;
 
 import com.yachaniapi.grupoestudio.dto.GrupoEstudioDTO;
+import com.yachaniapi.grupoestudio.entity.TipoGrupo;
 import com.yachaniapi.grupoestudio.service.GrupoEstudioService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -58,7 +59,8 @@ public class GrupoEstudioController {
     public ResponseEntity<List<GrupoEstudioDTO.Response>> filtrarGrupos(
             @RequestParam(required = false) String curso,
             @RequestParam(required = false) String metodoEstudio,
-            @RequestParam(required = false) Integer cantidadIntegrantes) {
-        return ResponseEntity.ok(grupoEstudioService.filtrarGrupos(curso, metodoEstudio, cantidadIntegrantes));
+            @RequestParam(required = false) Integer cantidadIntegrantes,
+            @RequestParam(required = false) TipoGrupo tipoGrupo) {
+        return ResponseEntity.ok(grupoEstudioService.filtrarGrupos(curso, metodoEstudio, cantidadIntegrantes, tipoGrupo));
     }
 }

@@ -131,7 +131,7 @@ public class SesionEstudioService {
 
     private void validarTutorDelGrupo(GrupoEstudio grupo, Long idTutor) {
         if (!grupo.getCreador().getIdUsuario().equals(idTutor)) {
-            throw new TutorNoAutorizadoException("Solo el tutor del grupo puede organizar sesiones");
+            throw new TutorNoAutorizadoException("Solo el creador del grupo puede organizar sesiones");
         }
     }
 }
