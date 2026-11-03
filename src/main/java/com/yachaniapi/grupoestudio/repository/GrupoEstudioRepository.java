@@ -27,4 +27,8 @@ public interface GrupoEstudioRepository extends JpaRepository<GrupoEstudio, Long
             @Param("metodoEstudio") String metodoEstudio,
             @Param("cantidadIntegrantes") Integer cantidadIntegrantes,
             @Param("tipoGrupo") TipoGrupo tipoGrupo);
+
+    @Query("SELECT DISTINCT g FROM GrupoEstudio g LEFT JOIN g.participantes p " +
+           "WHERE g.creador.idUsuario = :idUsuario OR p.idUsuario = :idUsuario")
+    List<GrupoEstudio> findByUsuario(@Param("idUsuario") Long idUsuario);
 }

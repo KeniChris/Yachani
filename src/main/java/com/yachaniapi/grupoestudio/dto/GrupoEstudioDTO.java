@@ -50,6 +50,41 @@ public class GrupoEstudioDTO {
     }
 
     @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class EditarNombreRequest {
+        @NotBlank(message = "El nombre es obligatorio")
+        private String nombre;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class EditarPublicacionesRequest {
+        @NotNull(message = "Indica si se permiten publicaciones")
+        private Boolean permitirPublicaciones;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class IntegranteResponse {
+        private Long idUsuario;
+        private String nombreCompleto;
+        private String correo;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class SolicitudPendienteResponse {
+        private Long idSolicitud;
+        private Long idGrupo;
+        private Long idEstudiante;
+        private String nombreEstudiante;
+        private String estado;
+        private java.time.LocalDateTime fechaSolicitud;
+    }
+
+    @Getter
     @AllArgsConstructor
     public static class Response {
         private Long idGrupo;

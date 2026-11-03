@@ -52,4 +52,7 @@ public class GrupoEstudio {
             inverseJoinColumns = @JoinColumn(name = "id_estudiante")
     )
     private List<Estudiante> participantes = new ArrayList<>();
+
+    @Column(name = "permitir_publicaciones", nullable = false)
+    private Boolean permitirPublicaciones = true;
 }

@@ -1,5 +1,6 @@
 package com.yachaniapi.notificacion.entity;
 
+import com.yachaniapi.grupoestudio.entity.GrupoEstudio;
 import com.yachaniapi.grupoestudio.entity.SolicitudGrupo;
 import com.yachaniapi.usuario.entity.Usuario;
 import jakarta.persistence.*;
@@ -25,9 +26,13 @@ public class Notificacion {
     @JoinColumn(name = "id_destinatario", nullable = false)
     private Usuario destinatario;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_solicitud", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_solicitud")
     private SolicitudGrupo solicitud;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_grupo")
+    private GrupoEstudio grupo;
 
     @Column(nullable = false, length = 30)
     private String tipo;

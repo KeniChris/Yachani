@@ -10,6 +10,7 @@ import com.yachaniapi.sesion.exception.SesionExceptions.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import com.yachaniapi.chat.exception.ChatExceptions.*;
 import com.yachaniapi.notificacion.exception.NotificacionExceptions.NotificacionNoEncontradaException;
+import com.yachaniapi.aviso.exception.AvisoExceptions.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -101,6 +102,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SolicitudNoEncontradaException.class)
     public ResponseEntity<Map<String, String>> manejarSolicitudNoEncontrada(
             SolicitudNoEncontradaException exception) {
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+
+    @ExceptionHandler(IntegranteNoEncontradoException.class)
+    public ResponseEntity<Map<String, String>> manejarIntegranteNoEncontrado(
+            IntegranteNoEncontradoException exception) {
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("mensaje", exception.getMessage()));
@@ -216,6 +225,22 @@ public class GlobalExceptionHandler {
             NotificacionNoEncontradaException exception) {
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+
+    @ExceptionHandler(AvisoNoEncontradoException.class)
+    public ResponseEntity<Map<String, String>> manejarAvisoNoEncontrado(
+            AvisoNoEncontradoException exception) {
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+
+    @ExceptionHandler(AutorNoAutorizadoException.class)
+    public ResponseEntity<Map<String, String>> manejarAutorNoAutorizado(
+            AutorNoAutorizadoException exception) {
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(Map.of("mensaje", exception.getMessage()));
     }
 

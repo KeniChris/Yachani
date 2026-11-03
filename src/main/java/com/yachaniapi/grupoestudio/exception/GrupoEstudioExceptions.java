@@ -19,4 +19,10 @@ public class GrupoEstudioExceptions {
             super(mensaje);
         }
     }
+
+    public static class IntegranteNoEncontradoException extends RuntimeException {
+        public IntegranteNoEncontradoException(String mensaje) {
+            super(mensaje);
+        }
+    }
 }
