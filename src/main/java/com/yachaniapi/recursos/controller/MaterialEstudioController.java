@@ -1,7 +1,11 @@
 package com.yachaniapi.recursos.controller;
 
-import com.yachaniapi.recursos.dto.RecursosDTO.*;
 import com.yachaniapi.recursos.service.MaterialEstudioService;
+import com.yachaniapi.recursos.dto.request.CambiarTemaRequest;
+import com.yachaniapi.recursos.dto.response.DescargaResponse;
+import com.yachaniapi.recursos.dto.response.EnvioResponse;
+import com.yachaniapi.recursos.dto.response.MaterialResponse;
+import com.yachaniapi.recursos.dto.response.PaginaResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -12,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
 
 import java.util.List;
 

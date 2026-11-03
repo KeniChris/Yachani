@@ -56,6 +56,8 @@ public class RecursosSecurityConfig {
                         "/grupos/*/mazos/**"
                 )
                 .authenticationProvider(provider)
+                // Esto habilita CORS para temas, materiales y flashcards.
+                .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(

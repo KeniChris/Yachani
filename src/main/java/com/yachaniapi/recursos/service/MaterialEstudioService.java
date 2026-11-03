@@ -1,11 +1,14 @@
 package com.yachaniapi.recursos.service;
 
-import com.yachaniapi.recursos.dto.RecursosDTO.*;
 import com.yachaniapi.recursos.entity.MaterialEstudio;
 import com.yachaniapi.recursos.entity.TemaGrupo;
 import com.yachaniapi.recursos.exception.RecursosException;
 import com.yachaniapi.recursos.mapper.RecursosMapper;
 import com.yachaniapi.recursos.repository.MaterialEstudioRepository;
+import com.yachaniapi.recursos.dto.request.CambiarTemaRequest;
+import com.yachaniapi.recursos.dto.response.DescargaResponse;
+import com.yachaniapi.recursos.dto.response.EnvioResponse;
+import com.yachaniapi.recursos.dto.response.MaterialResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
