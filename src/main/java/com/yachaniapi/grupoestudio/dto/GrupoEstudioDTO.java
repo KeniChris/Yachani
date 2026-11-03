@@ -84,6 +84,18 @@ public class GrupoEstudioDTO {
         private java.time.LocalDateTime fechaSolicitud;
     }
 
+    // Solicitud vista desde el estudiante que la envió: aquí interesa el nombre del
+    // grupo, no el del estudiante.
+    @Getter
+    @AllArgsConstructor
+    public static class MiSolicitudResponse {
+        private Long idSolicitud;
+        private Long idGrupo;
+        private String nombreGrupo;
+        private String estado;
+        private java.time.LocalDateTime fechaSolicitud;
+    }
+
     @Getter
     @AllArgsConstructor
     public static class Response {
