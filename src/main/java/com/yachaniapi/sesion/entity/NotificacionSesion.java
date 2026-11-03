@@ -28,14 +28,19 @@ public class NotificacionSesion {
     @JoinColumn(name = "id_estudiante", nullable = false)
     private Estudiante estudiante;
 
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30)
     private String tipo;
 
     @Column(name = "fecha_creacion", nullable = false)
     private LocalDateTime fechaCreacion;
 
+    @Column(nullable = false)
+    private Boolean leida = false;
+
     @PrePersist
     public void asignarFechaCreacion() {
-        fechaCreacion = LocalDateTime.now();
+        if (fechaCreacion == null) {
+            fechaCreacion = LocalDateTime.now();
+        }
     }
 }
