@@ -86,6 +86,13 @@ public class GrupoEstudioController {
         return ResponseEntity.status(HttpStatus.CREATED).body(grupoEstudioService.solicitarUnirse(idGrupo, request));
     }
 
+    // Solicitudes que envió un estudiante ("Mis solicitudes").
+    @GetMapping("/solicitudes")
+    public ResponseEntity<List<GrupoEstudioDTO.MiSolicitudResponse>> listarSolicitudesDeEstudiante(
+            @RequestParam Long idEstudiante) {
+        return ResponseEntity.ok(grupoEstudioService.listarSolicitudesDeEstudiante(idEstudiante));
+    }
+
     @PutMapping("/solicitudes/{idSolicitud}/aceptar")
     public ResponseEntity<GrupoEstudioDTO.SolicitudResponse> aceptarSolicitud(@PathVariable Long idSolicitud) {
         return ResponseEntity.ok(grupoEstudioService.aceptarSolicitud(idSolicitud));

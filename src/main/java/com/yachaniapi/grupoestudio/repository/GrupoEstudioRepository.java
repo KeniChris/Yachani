@@ -17,14 +17,14 @@ public interface GrupoEstudioRepository extends JpaRepository<GrupoEstudio, Long
     @Query("SELECT g FROM GrupoEstudio g WHERE LOWER(g.nombre) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(g.descripcion) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<GrupoEstudio> findByKeyword(@Param("keyword") String keyword);
 
+    // Solo los filtros que la base puede resolver sin comparar texto. El curso y el método
+    // de estudio se filtran en el servicio, que normaliza tildes y mayúsculas; hacerlo aquí
+    // obligaría a LOWER(?) sobre un parámetro nulo, que en PostgreSQL falla con
+    // "function lower(bytea) does not exist".
     @Query("SELECT g FROM GrupoEstudio g WHERE " +
-           "(:curso IS NULL OR LOWER(g.nombre) LIKE LOWER(CONCAT('%', :curso, '%'))) AND " +
-           "(:metodoEstudio IS NULL OR LOWER(g.metodoEstudio) = LOWER(:metodoEstudio)) AND " +
            "(:cantidadIntegrantes IS NULL OR SIZE(g.participantes) = :cantidadIntegrantes) AND " +
            "(:tipoGrupo IS NULL OR g.tipoGrupo = :tipoGrupo)")
     List<GrupoEstudio> findByFiltros(
-            @Param("curso") String curso,
-            @Param("metodoEstudio") String metodoEstudio,
             @Param("cantidadIntegrantes") Integer cantidadIntegrantes,
             @Param("tipoGrupo") TipoGrupo tipoGrupo);
 

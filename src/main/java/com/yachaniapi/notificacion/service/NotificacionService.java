@@ -84,11 +84,23 @@ public class NotificacionService {
         return notificacionMapper.toNotificacionResponse(notificacionRepository.save(notificacion));
     }
 
+    // Desvincula las notificaciones de una solicitud para poder borrarla sin romper la
+    // referencia (al aceptar una solicitud, esta se elimina).
+    @Transactional
+    public void desvincularDeSolicitud(Long idSolicitud) {
+        List<Notificacion> notificaciones = notificacionRepository.findBySolicitud_IdSolicitud(idSolicitud);
+        notificaciones.forEach(notificacion -> notificacion.setSolicitud(null));
+        notificacionRepository.saveAll(notificaciones);
+    }
+
     private void crear(Usuario destinatario, SolicitudGrupo solicitud, String tipo, String mensaje) {
 
         Notificacion notificacion = new Notificacion();
         notificacion.setDestinatario(destinatario);
         notificacion.setSolicitud(solicitud);
+        // El grupo se guarda aparte para que la notificación conserve su contexto aunque
+        // la solicitud se borre después.
+        notificacion.setGrupo(solicitud.getGrupo());
         notificacion.setTipo(tipo);
         notificacion.setMensaje(mensaje);
 

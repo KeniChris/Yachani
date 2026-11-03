@@ -116,8 +116,11 @@ public class GrupoEstudioService {
             throw new IllegalArgumentException("El estudiante ya es miembro del grupo");
         }
 
-        if (solicitudRepository.existsByGrupo_IdGrupoAndEstudiante_IdUsuario(idGrupo, estudiante.getIdUsuario())) {
-            throw new IllegalArgumentException("El estudiante ya envió una solicitud a este grupo");
+        // Solo bloquea si hay una solicitud pendiente. Si la anterior fue rechazada, o fue
+        // aceptada y luego lo sacaron del grupo, puede volver a solicitar.
+        if (solicitudRepository.existsByGrupo_IdGrupoAndEstudiante_IdUsuarioAndEstado(
+                idGrupo, estudiante.getIdUsuario(), "PENDIENTE")) {
+            throw new IllegalArgumentException("Ya tienes una solicitud pendiente en este grupo");
         }
 
         SolicitudGrupo solicitud = new SolicitudGrupo();
@@ -146,11 +149,18 @@ public class GrupoEstudioService {
         }
 
         solicitud.setEstado("ACEPTADA");
-        solicitudRepository.save(solicitud);
         grupo.getParticipantes().add(solicitud.getEstudiante());
         grupoRepository.save(grupo);
         notificacionService.notificarSolicitudAceptada(solicitud);
-        return toSolicitudResponse(solicitud, "Solicitud aceptada");
+
+        // La solicitud aceptada ya cumplió su función: se borra para que no quede en
+        // "Mis solicitudes" y para que el estudiante pueda volver a solicitar si algún día
+        // lo sacan del grupo. Antes hay que soltar la referencia desde las notificaciones.
+        GrupoEstudioDTO.SolicitudResponse respuesta = toSolicitudResponse(solicitud, "Solicitud aceptada");
+        notificacionService.desvincularDeSolicitud(solicitud.getIdSolicitud());
+        solicitudRepository.delete(solicitud);
+
+        return respuesta;
     }
 
     @Transactional
@@ -244,14 +254,55 @@ public class GrupoEstudioService {
         if (keyword == null || keyword.trim().isEmpty()) {
             throw new IllegalArgumentException("Ingrese un curso o tema");
         }
-        return grupoRepository.findByKeyword(keyword.trim()).stream()
+
+        String busqueda = normalizar(keyword);
+
+        // La comparación se hace en memoria para ignorar tildes: "calculo" encuentra
+        // "Dominando Cálculo".
+        return grupoRepository.findAll().stream()
+                .filter(g -> normalizar(g.getNombre()).contains(busqueda)
+                        || normalizar(g.getDescripcion()).contains(busqueda))
                 .map(g -> toResponse(g, "Búsqueda completada"))
                 .collect(Collectors.toList());
     }
 
     public List<GrupoEstudioDTO.Response> filtrarGrupos(String curso, String metodoEstudio, Integer cantidadIntegrantes, TipoGrupo tipoGrupo) {
-        return grupoRepository.findByFiltros(curso, metodoEstudio, cantidadIntegrantes, tipoGrupo).stream()
+        // Los filtros de texto se aplican en memoria para ignorar tildes y mayúsculas;
+        // un filtro vacío no filtra, así que sin ningún filtro devuelve todos los grupos.
+        String cursoFiltro = normalizar(curso);
+        String metodoFiltro = normalizar(metodoEstudio);
+
+        return grupoRepository.findByFiltros(cantidadIntegrantes, tipoGrupo).stream()
+                .filter(g -> cursoFiltro.isEmpty() || normalizar(g.getNombre()).contains(cursoFiltro))
+                .filter(g -> metodoFiltro.isEmpty() || normalizar(g.getMetodoEstudio()).equals(metodoFiltro))
                 .map(g -> toResponse(g, "Filtrado completado"))
+                .collect(Collectors.toList());
+    }
+
+    // Pasa el texto a minúsculas y le quita las tildes, para comparar sin importar
+    // acentos ni mayúsculas ("Práctico", "practico" y "PRACTICO" son lo mismo).
+    private static String normalizar(String texto) {
+        if (texto == null) {
+            return "";
+        }
+
+        return java.text.Normalizer
+                .normalize(texto.trim(), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase();
+    }
+
+    public List<GrupoEstudioDTO.MiSolicitudResponse> listarSolicitudesDeEstudiante(Long idEstudiante) {
+        // Las aceptadas no se listan: al aceptarlas se borran, y si quedó alguna de antes
+        // tampoco debe aparecer (el estudiante ya está en el grupo).
+        return solicitudRepository.findByEstudiante_IdUsuarioOrderByFechaSolicitudDesc(idEstudiante).stream()
+                .filter(solicitud -> !"ACEPTADA".equals(solicitud.getEstado()))
+                .map(solicitud -> new GrupoEstudioDTO.MiSolicitudResponse(
+                        solicitud.getIdSolicitud(),
+                        solicitud.getGrupo().getIdGrupo(),
+                        solicitud.getGrupo().getNombre(),
+                        solicitud.getEstado(),
+                        solicitud.getFechaSolicitud()))
                 .collect(Collectors.toList());
     }
 
