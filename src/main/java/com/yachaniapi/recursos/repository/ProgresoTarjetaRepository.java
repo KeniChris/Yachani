@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface ProgresoTarjetaRepository
         extends JpaRepository<ProgresoTarjeta, Long> {
-
+    //Busca el progreso de un usuario para una tarjeta
     Optional<ProgresoTarjeta>
     findByUsuario_IdUsuarioAndTarjeta_IdTarjeta(
             Long idUsuario,
