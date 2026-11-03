@@ -3,9 +3,9 @@ spring:
     name: Yachani
 
   datasource:
-    url: ${SUPABASE_DB_URL:jdbc:postgresql://localhost:5432/yachanidb}
-    username: ${SUPABASE_DB_USERNAME:postgres}
-    password: ${SUPABASE_DB_PASSWORD:adminadmin}
+    url: ${SUPABASE_DB_URL}
+    username: ${SUPABASE_DB_USERNAME}
+    password: ${SUPABASE_DB_PASSWORD}
 
   jpa:
     hibernate:
