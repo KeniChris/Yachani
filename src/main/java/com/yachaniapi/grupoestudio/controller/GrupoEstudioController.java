@@ -26,6 +26,52 @@ public class GrupoEstudioController {
         return ResponseEntity.status(HttpStatus.CREATED).body(grupoEstudioService.crearGrupo(request));
     }
 
+    @GetMapping
+    public ResponseEntity<List<GrupoEstudioDTO.Response>> listarGruposDeUsuario(
+            @RequestParam Long idUsuario) {
+        return ResponseEntity.ok(grupoEstudioService.listarGruposDeUsuario(idUsuario));
+    }
+
+    @GetMapping("/{idGrupo}")
+    public ResponseEntity<GrupoEstudioDTO.Response> obtenerGrupo(@PathVariable Long idGrupo) {
+        return ResponseEntity.ok(grupoEstudioService.obtenerGrupo(idGrupo));
+    }
+
+    @PatchMapping("/{idGrupo}/nombre")
+    public ResponseEntity<GrupoEstudioDTO.Response> editarNombre(
+            @PathVariable Long idGrupo,
+            @Valid @RequestBody GrupoEstudioDTO.EditarNombreRequest request) {
+        return ResponseEntity.ok(grupoEstudioService.editarNombre(idGrupo, request.getNombre()));
+    }
+
+    @PatchMapping("/{idGrupo}/publicaciones")
+    public ResponseEntity<GrupoEstudioDTO.Response> cambiarPermitirPublicaciones(
+            @PathVariable Long idGrupo,
+            @Valid @RequestBody GrupoEstudioDTO.EditarPublicacionesRequest request) {
+        return ResponseEntity.ok(
+                grupoEstudioService.cambiarPermitirPublicaciones(idGrupo, request.getPermitirPublicaciones()));
+    }
+
+    @GetMapping("/{idGrupo}/integrantes")
+    public ResponseEntity<List<GrupoEstudioDTO.IntegranteResponse>> listarIntegrantes(
+            @PathVariable Long idGrupo) {
+        return ResponseEntity.ok(grupoEstudioService.listarIntegrantes(idGrupo));
+    }
+
+    @DeleteMapping("/{idGrupo}/integrantes/{idEstudiante}")
+    public ResponseEntity<Void> eliminarIntegrante(
+            @PathVariable Long idGrupo,
+            @PathVariable Long idEstudiante) {
+        grupoEstudioService.eliminarIntegrante(idGrupo, idEstudiante);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{idGrupo}/solicitudes")
+    public ResponseEntity<List<GrupoEstudioDTO.SolicitudPendienteResponse>> listarSolicitudesPendientes(
+            @PathVariable Long idGrupo) {
+        return ResponseEntity.ok(grupoEstudioService.listarSolicitudesPendientes(idGrupo));
+    }
+
     @PatchMapping("/{idGrupo}/capacidad")
     public ResponseEntity<GrupoEstudioDTO.Response> actualizarCapacidad(
             @PathVariable Long idGrupo,

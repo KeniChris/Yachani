@@ -168,6 +168,78 @@ public class GrupoEstudioService {
         return toSolicitudResponse(solicitud, "Solicitud rechazada");
     }
 
+    public GrupoEstudioDTO.Response obtenerGrupo(Long idGrupo) {
+        GrupoEstudio grupo = grupoRepository.findById(idGrupo)
+                .orElseThrow(() -> new GrupoNoEncontradoException("El grupo de estudio no existe"));
+        return toResponse(grupo, null);
+    }
+
+    public List<GrupoEstudioDTO.Response> listarGruposDeUsuario(Long idUsuario) {
+        if (!usuarioRepository.existsById(idUsuario)) {
+            throw new UsuarioNoEncontradoException("Usuario no encontrado");
+        }
+        return grupoRepository.findByUsuario(idUsuario).stream()
+                .map(g -> toResponse(g, null))
+                .collect(Collectors.toList());
+    }
+
+    public List<GrupoEstudioDTO.IntegranteResponse> listarIntegrantes(Long idGrupo) {
+        GrupoEstudio grupo = grupoRepository.findById(idGrupo)
+                .orElseThrow(() -> new GrupoNoEncontradoException("El grupo de estudio no existe"));
+        return grupo.getParticipantes().stream()
+                .map(estudiante -> new GrupoEstudioDTO.IntegranteResponse(
+                        estudiante.getIdUsuario(),
+                        estudiante.getNombres() + " " + estudiante.getApellidos(),
+                        estudiante.getCorreo()))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void eliminarIntegrante(Long idGrupo, Long idEstudiante) {
+        GrupoEstudio grupo = grupoRepository.findById(idGrupo)
+                .orElseThrow(() -> new GrupoNoEncontradoException("El grupo de estudio no existe"));
+
+        boolean eliminado = grupo.getParticipantes().removeIf(
+                estudiante -> estudiante.getIdUsuario().equals(idEstudiante));
+
+        if (!eliminado) {
+            throw new IntegranteNoEncontradoException("El estudiante no es integrante de este grupo");
+        }
+
+        grupoRepository.save(grupo);
+    }
+
+    public List<GrupoEstudioDTO.SolicitudPendienteResponse> listarSolicitudesPendientes(Long idGrupo) {
+        if (!grupoRepository.existsById(idGrupo)) {
+            throw new GrupoNoEncontradoException("El grupo de estudio no existe");
+        }
+        return solicitudRepository.findByGrupo_IdGrupoAndEstadoOrderByFechaSolicitudAsc(idGrupo, "PENDIENTE").stream()
+                .map(solicitud -> new GrupoEstudioDTO.SolicitudPendienteResponse(
+                        solicitud.getIdSolicitud(),
+                        solicitud.getGrupo().getIdGrupo(),
+                        solicitud.getEstudiante().getIdUsuario(),
+                        solicitud.getEstudiante().getNombres() + " " + solicitud.getEstudiante().getApellidos(),
+                        solicitud.getEstado(),
+                        solicitud.getFechaSolicitud()))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public GrupoEstudioDTO.Response editarNombre(Long idGrupo, String nombre) {
+        GrupoEstudio grupo = grupoRepository.findById(idGrupo)
+                .orElseThrow(() -> new GrupoNoEncontradoException("El grupo de estudio no existe"));
+        grupo.setNombre(nombre.trim());
+        return toResponse(grupoRepository.save(grupo), "Nombre actualizado");
+    }
+
+    @Transactional
+    public GrupoEstudioDTO.Response cambiarPermitirPublicaciones(Long idGrupo, Boolean permitirPublicaciones) {
+        GrupoEstudio grupo = grupoRepository.findById(idGrupo)
+                .orElseThrow(() -> new GrupoNoEncontradoException("El grupo de estudio no existe"));
+        grupo.setPermitirPublicaciones(permitirPublicaciones);
+        return toResponse(grupoRepository.save(grupo), "Configuración actualizada");
+    }
+
     public List<GrupoEstudioDTO.Response> buscarGrupos(String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) {
             throw new IllegalArgumentException("Ingrese un curso o tema");
