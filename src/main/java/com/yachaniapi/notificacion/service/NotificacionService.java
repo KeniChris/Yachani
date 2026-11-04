@@ -79,6 +79,21 @@ public class NotificacionService {
     }
 
     @Transactional
+    public void desvincularDeSolicitud(Long idSolicitud) {
+        var notificaciones = notificacionRepository.findBySolicitud_IdSolicitud(idSolicitud);
+        for (Notificacion notificacion : notificaciones) {
+            // Las notificaciones antiguas pueden conservar el grupo solo a través
+            // de la solicitud. Se copia antes de retirar esa referencia.
+            if (notificacion.getGrupo() == null && notificacion.getSolicitud() != null) {
+                notificacion.setGrupo(notificacion.getSolicitud().getGrupo());
+            }
+            notificacion.setSolicitud(null);
+        }
+        // El FK debe quedar libre antes de borrar o reemplazar la solicitud.
+        notificacionRepository.saveAllAndFlush(notificaciones);
+    }
+
+    @Transactional
     public void notificarSesion(SesionEstudio sesion, String tipo) {
         var destinatarios = new LinkedHashMap<Long, Usuario>();
         var grupo = sesion.getGrupo();

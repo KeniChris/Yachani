@@ -18,6 +18,8 @@ import com.yachaniapi.usuario.exception.UsuarioNoEncontradoException;
 import com.yachaniapi.usuario.exception.UsuarioNoEsEstudianteException;
 import com.yachaniapi.usuario.repository.UsuarioRepository;
 import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Expression;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -29,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.text.Normalizer;
 
 @Service
 @RequiredArgsConstructor
@@ -109,17 +112,17 @@ public class GrupoEstudioService {
         }
         for (String texto : new String[]{query, curso}) {
             if (texto != null && !texto.isBlank()) {
-                String patron = "%" + escaparLike(texto.strip().toLowerCase(Locale.ROOT)) + "%";
+                String patron = "%" + escaparLike(normalizar(texto)) + "%";
                 filtros = filtros.and((root, consulta, cb) -> cb.or(
-                        cb.like(cb.lower(root.get("nombre")), patron, '\\'),
-                        cb.like(cb.lower(root.get("descripcion")), patron, '\\')
+                        cb.like(sinAcentos(cb, root.get("nombre")), patron, '\\'),
+                        cb.like(sinAcentos(cb, root.get("descripcion")), patron, '\\')
                 ));
             }
         }
         if (metodoEstudio != null && !metodoEstudio.isBlank()) {
-            String metodo = metodoEstudio.strip().toLowerCase(Locale.ROOT);
+            String metodo = normalizar(metodoEstudio);
             filtros = filtros.and((root, consulta, cb) ->
-                    cb.equal(cb.lower(root.get("metodoEstudio")), metodo));
+                    cb.equal(sinAcentos(cb, root.get("metodoEstudio")), metodo));
         }
         if (cantidadIntegrantes != null) {
             filtros = filtros.and((root, consulta, cb) ->
@@ -206,13 +209,21 @@ public class GrupoEstudioService {
         if (reglas.esIntegrante(grupo, estudiante.getIdUsuario())) {
             throw new ConflictoGrupoException("Ya perteneces a este grupo");
         }
-        if (solicitudRepository.existsByGrupo_IdGrupoAndEstudiante_IdUsuario(
-                idGrupo, estudiante.getIdUsuario())) {
-            throw new ConflictoGrupoException("Ya existe una solicitud de este estudiante para el grupo");
+        var anterior = solicitudRepository.findByGrupo_IdGrupoAndEstudiante_IdUsuario(
+                idGrupo, estudiante.getIdUsuario());
+        if (anterior.filter(s -> "PENDIENTE".equals(s.getEstado())).isPresent()) {
+            throw new ConflictoGrupoException("Ya tienes una solicitud pendiente para el grupo");
         }
         if (reglas.cuposDisponibles(grupo) == 0) {
             throw new GrupoLlenoException("El grupo ya alcanzó su capacidad máxima");
         }
+        // La pareja grupo/estudiante es única. Se reemplaza la petición anterior
+        // conservando las notificaciones y se confirma el DELETE antes del INSERT.
+        anterior.ifPresent(s -> {
+            notificacionService.desvincularDeSolicitud(s.getIdSolicitud());
+            solicitudRepository.delete(s);
+            solicitudRepository.flush();
+        });
         SolicitudGrupo solicitud = new SolicitudGrupo();
         solicitud.setGrupo(grupo);
         solicitud.setEstudiante(estudiante);
@@ -235,9 +246,11 @@ public class GrupoEstudioService {
         grupo.getParticipantes().add(solicitud.getEstudiante());
         solicitud.setEstado("ACEPTADA");
         grupoRepository.save(grupo);
-        solicitudRepository.save(solicitud);
         notificacionService.notificarSolicitudAceptada(solicitud);
-        return mapper.toSolicitud(solicitud, "Solicitud aceptada");
+        SolicitudGrupoResponse respuesta = mapper.toSolicitud(solicitud, "Solicitud aceptada");
+        notificacionService.desvincularDeSolicitud(idSolicitud);
+        solicitudRepository.delete(solicitud);
+        return respuesta;
     }
 
     @Transactional
@@ -267,8 +280,21 @@ public class GrupoEstudioService {
             throw new UsuarioNoEsEstudianteException("Solo los estudiantes tienen solicitudes de ingreso");
         }
         return PaginaResponse.desde(solicitudRepository
-                .findByEstudiante_IdUsuarioAndEstado(idEstudiante, "PENDIENTE", pageable)
+                .findByEstudiante_IdUsuarioAndEstadoNot(idEstudiante, "ACEPTADA", pageable)
                 .map(mapper::toPropia));
+    }
+
+    private static String normalizar(String texto) {
+        return Normalizer.normalize(texto.strip(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "").toLowerCase(Locale.ROOT);
+    }
+
+    private static Expression<String> sinAcentos(CriteriaBuilder cb, Expression<String> texto) {
+        // PostgreSQL translate no requiere extensiones. Se filtra ANTES de paginar
+        // y solo se crean predicados para parámetros presentes (sin LOWER de nulos).
+        return cb.function("translate", String.class, cb.lower(cb.trim(texto)),
+                cb.literal("áàäâãåéèëêíìïîóòöôõúùüûñçýÿ"),
+                cb.literal("aaaaaaeeeeiiiiooooouuuuncyy"));
     }
 
     private Usuario buscarUsuario(Long idUsuario) {

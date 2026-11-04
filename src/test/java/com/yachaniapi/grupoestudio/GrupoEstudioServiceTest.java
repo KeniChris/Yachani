@@ -16,7 +16,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -94,6 +100,8 @@ class GrupoEstudioServiceTest {
         assertEquals(2, grupo.getParticipantes().size());
         verify(notificaciones).notificarSolicitudAceptada(primera);
         verify(notificaciones, never()).notificarSolicitudAceptada(segunda);
+        verify(solicitudes).delete(primera);
+        verify(solicitudes, never()).delete(segunda);
     }
 
     @Test
@@ -129,6 +137,126 @@ class GrupoEstudioServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.cambiarPermitirPublicaciones(
                 20L, new EditarPublicacionesGrupoRequest(false)));
         assertTrue(grupo.getPermitirPublicaciones());
+    }
+
+    @Test
+    void unaSolicitudPendienteNoSeDuplicaNiSeBorra() {
+        GrupoEstudio grupo = grupoEstudiantes(3);
+        Estudiante estudiante = estudiante(2L);
+        SolicitudGrupo anterior = solicitud(10L, grupo, estudiante);
+        prepararSolicitante(grupo, estudiante, anterior);
+
+        assertThrows(ConflictoGrupoException.class,
+                () -> service.solicitarUnirse(20L, new SolicitudGrupoRequest(null)));
+
+        assertEquals("PENDIENTE", anterior.getEstado());
+        verify(solicitudes, never()).delete(any());
+        verify(solicitudes, never()).save(any());
+        verifyNoInteractions(notificaciones);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"RECHAZADA", "ACEPTADA"})
+    void puedeReenviarTrasRechazoOExpulsionSinDuplicarLaParejaUnica(String estadoAnterior) {
+        GrupoEstudio grupo = grupoEstudiantes(3);
+        Estudiante estudiante = estudiante(2L);
+        SolicitudGrupo anterior = solicitud(10L, grupo, estudiante);
+        anterior.setEstado(estadoAnterior);
+        prepararSolicitante(grupo, estudiante, anterior);
+        when(solicitudes.save(any(SolicitudGrupo.class))).thenAnswer(invocacion -> {
+            SolicitudGrupo nueva = invocacion.getArgument(0);
+            assertNotSame(anterior, nueva);
+            nueva.setIdSolicitud(11L);
+            return nueva;
+        });
+
+        var respuesta = service.solicitarUnirse(20L, new SolicitudGrupoRequest(null));
+
+        assertEquals(11L, respuesta.idSolicitud());
+        assertEquals("PENDIENTE", respuesta.estado());
+        var orden = inOrder(notificaciones, solicitudes);
+        orden.verify(notificaciones).desvincularDeSolicitud(10L);
+        orden.verify(solicitudes).delete(anterior);
+        orden.verify(solicitudes).flush();
+        orden.verify(solicitudes).save(any(SolicitudGrupo.class));
+        orden.verify(notificaciones).notificarSolicitudRecibida(any(SolicitudGrupo.class));
+    }
+
+    @Test
+    void noBorraLaSolicitudRechazadaSiElGrupoYaEstaLleno() {
+        GrupoEstudio grupo = grupoEstudiantes(2);
+        grupo.getParticipantes().add(estudiante(3L));
+        Estudiante estudiante = estudiante(2L);
+        SolicitudGrupo anterior = solicitud(10L, grupo, estudiante);
+        anterior.setEstado("RECHAZADA");
+        prepararSolicitante(grupo, estudiante, anterior);
+
+        assertThrows(GrupoLlenoException.class,
+                () -> service.solicitarUnirse(20L, new SolicitudGrupoRequest(null)));
+
+        verify(solicitudes, never()).delete(any());
+        verify(solicitudes, never()).save(any());
+        verifyNoInteractions(notificaciones);
+    }
+
+    @Test
+    void aceptarConservaLaNotificacionYRetiraLaSolicitudDeLaBandeja() {
+        GrupoEstudio grupo = grupoEstudiantes(3);
+        SolicitudGrupo solicitud = solicitud(10L, grupo, estudiante(2L));
+        when(solicitudes.buscarIdGrupo(10L)).thenReturn(Optional.of(20L));
+        when(acceso.administrador(20L, true)).thenReturn(grupo);
+        when(solicitudes.findById(10L)).thenReturn(Optional.of(solicitud));
+
+        var respuesta = service.aceptarSolicitud(10L);
+
+        assertEquals("ACEPTADA", respuesta.estado());
+        assertEquals(10L, respuesta.idSolicitud());
+        assertTrue(grupo.getParticipantes().contains(solicitud.getEstudiante()));
+        var orden = inOrder(notificaciones, solicitudes);
+        orden.verify(notificaciones).notificarSolicitudAceptada(solicitud);
+        orden.verify(notificaciones).desvincularDeSolicitud(10L);
+        orden.verify(solicitudes).delete(solicitud);
+    }
+
+    @Test
+    void misSolicitudesIncluyeRechazadasYPendientesConservandoLaPagina() {
+        GrupoEstudio grupo = grupoEstudiantes(3);
+        Estudiante estudiante = estudiante(2L);
+        SolicitudGrupo pendiente = solicitud(10L, grupo, estudiante);
+        SolicitudGrupo rechazada = solicitud(11L, grupo, estudiante);
+        rechazada.setEstado("RECHAZADA");
+        var pagina = PageRequest.of(1, 2);
+        when(usuarioActual.exigirPropio(null)).thenReturn(estudiante);
+        when(usuarios.findById(2L)).thenReturn(Optional.of(estudiante));
+        when(solicitudes.findByEstudiante_IdUsuarioAndEstadoNot(2L, "ACEPTADA", pagina))
+                .thenReturn(new PageImpl<>(List.of(pendiente, rechazada), pagina, 6));
+
+        var respuesta = service.listarMisSolicitudes(null, pagina);
+
+        assertEquals(List.of("PENDIENTE", "RECHAZADA"),
+                respuesta.content().stream().map(s -> s.estado()).toList());
+        assertEquals("Grupo", respuesta.content().getFirst().nombreGrupo());
+        assertEquals(1, respuesta.page());
+        assertEquals(6, respuesta.totalElements());
+        assertFalse(respuesta.last());
+    }
+
+    @Test
+    void reenviarNoPermiteSuplantarAUnEstudianteConOtroId() {
+        when(grupos.buscarConBloqueo(20L)).thenReturn(Optional.of(grupoEstudiantes(3)));
+        when(usuarioActual.exigirPropio(99L)).thenThrow(new AccessDeniedException("Identidad ajena"));
+
+        assertThrows(AccessDeniedException.class,
+                () -> service.solicitarUnirse(20L, new SolicitudGrupoRequest(99L)));
+
+        verifyNoInteractions(solicitudes, notificaciones);
+    }
+
+    private void prepararSolicitante(GrupoEstudio grupo, Estudiante estudiante, SolicitudGrupo anterior) {
+        when(grupos.buscarConBloqueo(20L)).thenReturn(Optional.of(grupo));
+        when(usuarioActual.estudianteActual()).thenReturn(estudiante);
+        when(solicitudes.findByGrupo_IdGrupoAndEstudiante_IdUsuario(20L, estudiante.getIdUsuario()))
+                .thenReturn(Optional.of(anterior));
     }
 
     private GrupoEstudio grupoEstudiantes(int capacidad) {

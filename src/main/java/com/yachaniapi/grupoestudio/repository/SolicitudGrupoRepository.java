@@ -11,7 +11,7 @@ import java.util.Optional;
 
 public interface SolicitudGrupoRepository extends JpaRepository<SolicitudGrupo, Long> {
 
-    boolean existsByGrupo_IdGrupoAndEstudiante_IdUsuario(
+    Optional<SolicitudGrupo> findByGrupo_IdGrupoAndEstudiante_IdUsuario(
             Long idGrupo, Long idEstudiante
     );
 
@@ -19,7 +19,7 @@ public interface SolicitudGrupoRepository extends JpaRepository<SolicitudGrupo, 
             Long idGrupo, String estado, Pageable pageable
     );
 
-    Page<SolicitudGrupo> findByEstudiante_IdUsuarioAndEstado(
+    Page<SolicitudGrupo> findByEstudiante_IdUsuarioAndEstadoNot(
             Long idEstudiante, String estado, Pageable pageable
     );
 
