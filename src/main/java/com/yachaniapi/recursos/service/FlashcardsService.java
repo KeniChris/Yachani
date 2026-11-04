@@ -67,6 +67,15 @@ public class FlashcardsService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public List<MazoCompartidoResponse> listarPublicacionesPropias(Long idMazo) {
+        var mazo = acceso.propio(idMazo, false);
+        if (mazo.getEstado() != EstadoMazo.PUBLICADO) return List.of();
+        long cantidad = tarjetas.countByMazo_IdMazoAndActivaTrue(idMazo);
+        return compartidos.findByMazo_IdMazo(idMazo).stream()
+                .map(publicacion -> mapper.compartido(publicacion, cantidad)).toList();
+    }
+
     public OperacionFlashcardsResponse<MazoResponse> editar(
             Long idMazo,
             MazoRequest request

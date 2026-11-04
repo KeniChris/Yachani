@@ -48,6 +48,11 @@ public class MazoFlashcardsController {
         return service.editar(idMazo, request);
     }
 
+    @GetMapping("/{idMazo}/publicaciones")
+    public List<MazoCompartidoResponse> publicaciones(@PathVariable @Positive Long idMazo) {
+        return service.listarPublicacionesPropias(idMazo);
+    }
+
     @DeleteMapping("/{idMazo}/publicacion")
     public OperacionFlashcardsResponse<MazoResponse>
     retirarPublicacion(
