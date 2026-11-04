@@ -1,0 +1,24 @@
+name: Backend tests
+on:
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: mvn --batch-mode --no-transfer-progress test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: resultados-backend
+          path: target/surefire-reports/
