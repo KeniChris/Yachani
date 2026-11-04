@@ -14,7 +14,10 @@ public class TutorMapper {
                 tutor.getApellidos(),
                 tutor.getCorreo(),
                 tutor.getPresentacion(),
-                tutor.getMetodoEnsenanza()
+                tutor.getMetodoEnsenanza(),
+                tutor.getUniversidad(),
+                tutor.getCarrera(),
+                tutor.isConfiguracionCompletada()
         );
     }
 }

@@ -13,7 +13,7 @@ import com.yachaniapi.usuario.exception.UsuarioNoEsEstudianteException;
 import com.yachaniapi.usuario.mapper.PerfilAcademicoMapper;
 import com.yachaniapi.usuario.repository.ConocimientoAcademicoRepository;
 import com.yachaniapi.usuario.repository.UsuarioRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -29,11 +29,17 @@ public class PerfilAcademicoService {
     private final UsuarioRepository usuarioRepository;
     private final ConocimientoAcademicoRepository conocimientoRepository;
     private final PerfilAcademicoMapper perfilAcademicoMapper;
+    private final UsuarioActualService usuarioActual;
+    private final EstadoConfiguracionService estadoConfiguracion;
 
     public PerfilAcademicoService(
             UsuarioRepository usuarioRepository,
             ConocimientoAcademicoRepository conocimientoRepository,
-            PerfilAcademicoMapper perfilAcademicoMapper) {
+            PerfilAcademicoMapper perfilAcademicoMapper,
+            UsuarioActualService usuarioActual,
+            EstadoConfiguracionService estadoConfiguracion) {
+        this.usuarioActual = usuarioActual;
+        this.estadoConfiguracion = estadoConfiguracion;
 
         this.usuarioRepository = usuarioRepository;
         this.conocimientoRepository = conocimientoRepository;
@@ -58,6 +64,7 @@ public class PerfilAcademicoService {
                 request.getCarrera().trim()
         );
 
+        estadoConfiguracion.actualizar(estudiante);
         usuarioRepository.save(estudiante);
 
         return construirRespuesta(estudiante);
@@ -92,6 +99,7 @@ public class PerfilAcademicoService {
                 new ArrayList<>(temasLimpios)
         );
 
+        estadoConfiguracion.actualizar(estudiante);
         usuarioRepository.save(estudiante);
 
         return construirRespuesta(estudiante);
@@ -129,7 +137,9 @@ public class PerfilAcademicoService {
         conocimiento.setNivel(request.getNivel().trim());
 
         ConocimientoAcademico conocimientoGuardado =
-                conocimientoRepository.save(conocimiento);
+                conocimientoRepository.saveAndFlush(conocimiento);
+        estadoConfiguracion.actualizar(estudiante);
+        usuarioRepository.save(estudiante);
 
         return perfilAcademicoMapper.toConocimientoResponse(
                 conocimientoGuardado
@@ -145,7 +155,7 @@ public class PerfilAcademicoService {
             Long idConocimiento,
             ConocimientoAcademicoRequest request) {
 
-        buscarEstudiante(idUsuario);
+        Estudiante estudiante = buscarEstudiante(idUsuario);
 
         ConocimientoAcademico conocimiento =
                 conocimientoRepository
@@ -180,7 +190,9 @@ public class PerfilAcademicoService {
         conocimiento.setNivel(request.getNivel().trim());
 
         ConocimientoAcademico conocimientoActualizado =
-                conocimientoRepository.save(conocimiento);
+                conocimientoRepository.saveAndFlush(conocimiento);
+        estadoConfiguracion.actualizar(estudiante);
+        usuarioRepository.save(estudiante);
 
         return perfilAcademicoMapper.toConocimientoResponse(
                 conocimientoActualizado
@@ -203,6 +215,7 @@ public class PerfilAcademicoService {
      */
     private Estudiante buscarEstudiante(Long idUsuario) {
 
+        usuarioActual.exigirPropio(idUsuario);
         Usuario usuario = usuarioRepository.findById(idUsuario)
                 .orElseThrow(() ->
                         new UsuarioNoEncontradoException(
@@ -235,5 +248,31 @@ public class PerfilAcademicoService {
                 estudiante,
                 conocimientos
         );
+    }
+
+    @Transactional
+    public void eliminarConocimiento(Long idUsuario, Long idConocimiento) {
+        Estudiante estudiante = buscarEstudiante(idUsuario);
+        ConocimientoAcademico curso = conocimientoRepository
+                .findByIdConocimientoAndEstudiante_IdUsuario(idConocimiento, idUsuario)
+                .orElseThrow(() -> new IllegalArgumentException("El conocimiento académico no existe"));
+        conocimientoRepository.delete(curso);
+        conocimientoRepository.flush();
+        estadoConfiguracion.actualizar(estudiante);
+        usuarioRepository.save(estudiante);
+    }
+
+    @Transactional(readOnly = true)
+    public com.yachaniapi.usuario.dto.PerfilEstudiantePublicoResponse consultarPublico(Long idUsuario) {
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new UsuarioNoEncontradoException("Estudiante no encontrado"));
+        if (!(usuario instanceof Estudiante estudiante)) {
+            throw new UsuarioNoEsEstudianteException("El usuario no es estudiante");
+        }
+        var cursos = conocimientoRepository.findByEstudiante_IdUsuarioOrderByCursoAsc(idUsuario)
+                .stream().map(perfilAcademicoMapper::toConocimientoResponse).toList();
+        return new com.yachaniapi.usuario.dto.PerfilEstudiantePublicoResponse(
+                idUsuario, estudiante.getNombres(), estudiante.getApellidos(),
+                estudiante.getUniversidad(), estudiante.getCarrera(), cursos);
     }
 }

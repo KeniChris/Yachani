@@ -25,7 +25,8 @@ public class UsuarioMapper {
                 usuario.getApellidos(),
                 usuario.getCorreo(),
                 tipoUsuario,
-                mensaje
+                mensaje,
+                usuario.isConfiguracionCompletada()
         );
     }
 }

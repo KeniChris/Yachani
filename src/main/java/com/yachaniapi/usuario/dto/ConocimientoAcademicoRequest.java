@@ -14,8 +14,10 @@ import lombok.Setter;
 public class ConocimientoAcademicoRequest {
 
     @NotBlank(message = "El curso es obligatorio")
+    @jakarta.validation.constraints.Size(max = 120)
     private String curso;
 
     @NotBlank(message = "El nivel de conocimiento es obligatorio")
+    @jakarta.validation.constraints.Size(max = 30)
     private String nivel;
 }

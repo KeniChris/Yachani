@@ -63,7 +63,7 @@ public class MaterialEstudioService {
             Long idTema,
             List<MultipartFile> archivos) {
 
-        var contexto = acceso.obtener(idGrupo, true);
+        var contexto = acceso.obtenerParaPublicar(idGrupo);
 
         if (archivos == null || archivos.isEmpty()) {
             throw new RecursosException(
@@ -209,12 +209,17 @@ public class MaterialEstudioService {
             Long idMaterial,
             CambiarTemaRequest request) {
 
-        acceso.obtener(idGrupo, true);
+        var contexto = acceso.obtener(idGrupo, true);
 
         MaterialEstudio material = buscar(
                 idGrupo,
                 idMaterial
         );
+
+        if (!material.getAutor().getIdUsuario().equals(contexto.usuario().getIdUsuario())) {
+            throw new RecursosException(HttpStatus.FORBIDDEN,
+                    "Solo el autor puede cambiar el tema de este material");
+        }
 
         material.setTema(
                 request.idTema() == null

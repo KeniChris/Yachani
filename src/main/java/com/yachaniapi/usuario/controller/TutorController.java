@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@org.springframework.security.access.prepost.PreAuthorize("hasRole('TUTOR')")
 @RequestMapping("/tutores/{idUsuario}/perfil")
 public class TutorController {
 

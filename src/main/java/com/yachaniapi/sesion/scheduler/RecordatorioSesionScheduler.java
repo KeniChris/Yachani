@@ -18,11 +18,14 @@ public class RecordatorioSesionScheduler {
     private final SesionEstudioRepository sesionRepository;
     private final NotificacionSesionService notificacionService;
     private final long minutosAntes;
+    private final java.time.Clock clock;
 
     public RecordatorioSesionScheduler(
             SesionEstudioRepository sesionRepository,
             NotificacionSesionService notificacionService,
-            @Value("${yachani.recordatorio.minutos-antes:60}") long minutosAntes) {
+            @Value("${yachani.recordatorio.minutos-antes:60}") long minutosAntes,
+            java.time.Clock clock) {
+        this.clock = clock;
 
         this.sesionRepository = sesionRepository;
         this.notificacionService = notificacionService;
@@ -33,7 +36,7 @@ public class RecordatorioSesionScheduler {
     @Transactional
     public void enviarRecordatorios() {
 
-        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime ahora = LocalDateTime.now(clock);
 
         List<SesionEstudio> sesionesProximas = sesionRepository
                 .findByEstadoAndRecordatorioEnviadoFalseAndFechaHoraInicioBetween(

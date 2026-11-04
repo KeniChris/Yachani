@@ -7,6 +7,7 @@ import java.util.Optional;
 public interface CodigoRecuperacionRepository
         extends JpaRepository<CodigoRecuperacion, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     Optional<CodigoRecuperacion>
     findTopByUsuario_IdUsuarioAndUtilizadoFalseOrderByIdCodigoDesc(
             Long idUsuario

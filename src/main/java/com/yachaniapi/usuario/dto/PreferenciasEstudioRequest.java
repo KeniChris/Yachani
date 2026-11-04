@@ -17,11 +17,13 @@ import java.util.List;
 public class PreferenciasEstudioRequest {
 
     @NotBlank(message = "La modalidad preferida es obligatoria")
+    @jakarta.validation.constraints.Size(max = 50)
     private String modalidadPreferida;
 
     @NotBlank(message = "El método de estudio preferido es obligatorio")
+    @jakarta.validation.constraints.Size(max = 50)
     private String metodoPreferido;
 
     @NotNull(message = "La lista de temas de interés es obligatoria")
-    private List<String> temasInteres;
+    private List<@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 100) String> temasInteres;
 }

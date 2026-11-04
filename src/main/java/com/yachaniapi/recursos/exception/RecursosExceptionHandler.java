@@ -117,6 +117,18 @@ public class RecursosExceptionHandler {
         );
     }
 
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> manejarAutenticacion(
+            org.springframework.security.core.AuthenticationException exception) {
+        return respuesta(HttpStatus.UNAUTHORIZED, "Inicia sesión con un token válido", List.of());
+    }
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> manejarPermiso(
+            org.springframework.security.access.AccessDeniedException exception) {
+        return respuesta(HttpStatus.FORBIDDEN, "No tienes permiso para esta operación", List.of());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> manejarInesperado(
             Exception exception) {

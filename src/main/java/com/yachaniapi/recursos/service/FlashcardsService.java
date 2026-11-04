@@ -152,10 +152,7 @@ public class FlashcardsService {
     ) {
         var mazo = acceso.propio(idMazo, true);
 
-        var contexto = accesoGrupos.obtener(
-                idGrupo,
-                false
-        );
+        var contexto = accesoGrupos.obtenerParaPublicar(idGrupo);
 
         var tema = temas
                 .findByIdTemaAndGrupo_IdGrupo(

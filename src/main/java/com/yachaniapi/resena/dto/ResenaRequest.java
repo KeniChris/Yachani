@@ -14,7 +14,6 @@ import lombok.Setter;
 @NoArgsConstructor
 public class ResenaRequest {
 
-    @NotNull(message = "El ID del estudiante es obligatorio")
     private Long idEstudiante;
 
     @NotNull(message = "La calificación es obligatoria")

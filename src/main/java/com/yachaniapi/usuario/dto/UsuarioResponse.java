@@ -17,4 +17,5 @@ public class UsuarioResponse {
     private String correo;
     private String tipoUsuario;
     private String mensaje;
+    private boolean configuracionCompletada;
 }

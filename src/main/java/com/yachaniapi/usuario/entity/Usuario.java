@@ -28,4 +28,6 @@ public abstract class Usuario {
 
     @Column(name = "contrasena_hash", nullable = false)
     private String contrasenaHash;
+    @Column(name = "configuracion_completada", nullable = false)
+    private boolean configuracionCompletada = false;
 }

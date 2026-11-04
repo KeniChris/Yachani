@@ -29,4 +29,5 @@ public class PerfilAcademicoResponse {
     private List<String> temasInteres;
 
     private List<ConocimientoAcademicoResponse> conocimientos;
+    private boolean configuracionCompletada;
 }

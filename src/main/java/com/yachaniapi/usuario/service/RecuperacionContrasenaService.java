@@ -113,6 +113,9 @@ public class RecuperacionContrasenaService {
     public void restablecerContrasena(
             RestablecerContrasenaRequest request) {
 
+        if (request.getNuevaContrasena().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("La contraseña no puede superar 72 bytes");
+        }
         if (!request.getNuevaContrasena().equals(
                 request.getConfirmarContrasena())) {
 

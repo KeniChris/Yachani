@@ -39,7 +39,7 @@ public class TemaGrupoService {
             Long idGrupo,
             TemaRequest request) {
 
-        var contexto = acceso.obtener(idGrupo, true);
+        var contexto = acceso.obtenerParaGestionarTemas(idGrupo);
 
         if (temas.countByGrupo_IdGrupo(idGrupo) >= maxTemas) {
             throw new RecursosException(
@@ -91,7 +91,7 @@ public class TemaGrupoService {
             Long idTema,
             TemaActualizarRequest request) {
 
-        acceso.obtener(idGrupo, true);
+        acceso.obtenerParaGestionarTemas(idGrupo);
 
         TemaGrupo tema = buscarEntidad(idGrupo, idTema);
 
