@@ -27,11 +27,14 @@ public class ResenaService {
     private final ResenaRepository resenaRepository;
     private final UsuarioRepository usuarioRepository;
     private final ResenaMapper resenaMapper;
+    private final com.yachaniapi.usuario.service.UsuarioActualService usuarioActual;
 
     public ResenaService(
             ResenaRepository resenaRepository,
             UsuarioRepository usuarioRepository,
-            ResenaMapper resenaMapper) {
+            ResenaMapper resenaMapper,
+            com.yachaniapi.usuario.service.UsuarioActualService usuarioActual) {
+        this.usuarioActual = usuarioActual;
 
         this.resenaRepository = resenaRepository;
         this.usuarioRepository = usuarioRepository;
@@ -74,7 +77,8 @@ public class ResenaService {
     public ResenaResponse registrarResena(Long idTutor, ResenaRequest request) {
 
         Tutor tutor = buscarTutor(idTutor);
-        Estudiante estudiante = buscarEstudiante(request.getIdEstudiante());
+        usuarioActual.exigirPropio(request.getIdEstudiante());
+        Estudiante estudiante = usuarioActual.estudianteActual();
 
         boolean perteneceAGrupo = resenaRepository
                 .estudiantePerteneceAGrupoDelTutor(idTutor, estudiante.getIdUsuario());

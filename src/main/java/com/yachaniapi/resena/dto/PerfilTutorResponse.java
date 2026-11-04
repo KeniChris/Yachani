@@ -18,4 +18,8 @@ public class PerfilTutorResponse {
     private Double promedioCalificacion;
     private Long totalResenas;
     private String mensaje;
+    private String presentacion;
+    private String metodoEnsenanza;
+    private String universidad;
+    private String carrera;
 }

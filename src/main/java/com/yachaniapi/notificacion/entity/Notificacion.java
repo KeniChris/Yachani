@@ -37,7 +37,7 @@ public class Notificacion {
     @Column(nullable = false, length = 30)
     private String tipo;
 
-    @Column(nullable = false, length = 300)
+    @Column(nullable = false, length = 500)
     private String mensaje;
 
     @Column(nullable = false)
@@ -50,4 +50,10 @@ public class Notificacion {
     public void asignarFechaCreacion() {
         fechaCreacion = LocalDateTime.now();
     }
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_sesion")
+    private com.yachaniapi.sesion.entity.SesionEstudio sesion;
+
+    @Column(name = "id_notificacion_sesion_origen", unique = true)
+    private Long idNotificacionSesionOrigen;
 }

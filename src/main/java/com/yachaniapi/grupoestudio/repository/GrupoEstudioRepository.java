@@ -1,34 +1,28 @@
 package com.yachaniapi.grupoestudio.repository;
 
 import com.yachaniapi.grupoestudio.entity.GrupoEstudio;
-import com.yachaniapi.grupoestudio.entity.TipoGrupo;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
-import java.util.List;
+import java.util.Optional;
 
-@Repository
-public interface GrupoEstudioRepository extends JpaRepository<GrupoEstudio, Long> {
+public interface GrupoEstudioRepository extends
+        JpaRepository<GrupoEstudio, Long>, JpaSpecificationExecutor<GrupoEstudio> {
 
     long countByCreador_IdUsuario(Long idUsuario);
 
-    @Query("SELECT g FROM GrupoEstudio g WHERE LOWER(g.nombre) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(g.descripcion) LIKE LOWER(CONCAT('%', :keyword, '%'))")
-    List<GrupoEstudio> findByKeyword(@Param("keyword") String keyword);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select g from GrupoEstudio g where g.idGrupo = :idGrupo")
+    Optional<GrupoEstudio> buscarConBloqueo(@Param("idGrupo") Long idGrupo);
 
-    // Solo los filtros que la base puede resolver sin comparar texto. El curso y el método
-    // de estudio se filtran en el servicio, que normaliza tildes y mayúsculas; hacerlo aquí
-    // obligaría a LOWER(?) sobre un parámetro nulo, que en PostgreSQL falla con
-    // "function lower(bytea) does not exist".
-    @Query("SELECT g FROM GrupoEstudio g WHERE " +
-           "(:cantidadIntegrantes IS NULL OR SIZE(g.participantes) = :cantidadIntegrantes) AND " +
-           "(:tipoGrupo IS NULL OR g.tipoGrupo = :tipoGrupo)")
-    List<GrupoEstudio> findByFiltros(
-            @Param("cantidadIntegrantes") Integer cantidadIntegrantes,
-            @Param("tipoGrupo") TipoGrupo tipoGrupo);
-
-    @Query("SELECT DISTINCT g FROM GrupoEstudio g LEFT JOIN g.participantes p " +
-           "WHERE g.creador.idUsuario = :idUsuario OR p.idUsuario = :idUsuario")
-    List<GrupoEstudio> findByUsuario(@Param("idUsuario") Long idUsuario);
+    // Serializa el límite de grupos creados por un mismo usuario.
+    @Query(value = """
+            select id_usuario from usuarios
+            where id_usuario = :idUsuario for update
+            """, nativeQuery = true)
+    Optional<Long> bloquearCreador(@Param("idUsuario") Long idUsuario);
 }

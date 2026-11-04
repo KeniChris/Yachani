@@ -5,6 +5,7 @@ import com.yachaniapi.usuario.exception.CredencialesIncorrectasException;
 import com.yachaniapi.usuario.exception.UsuarioNoEncontradoException;
 import com.yachaniapi.usuario.exception.UsuarioNoEsEstudianteException;
 import com.yachaniapi.grupoestudio.exception.GrupoEstudioExceptions.*;
+import com.yachaniapi.grupoestudio.exception.ConflictoGrupoException;
 import com.yachaniapi.resena.exception.ResenaExceptions.*;
 import com.yachaniapi.sesion.exception.SesionExceptions.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -27,6 +28,13 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ConflictoGrupoException.class)
+    public ResponseEntity<Map<String, String>> manejarConflictoGrupo(
+            ConflictoGrupoException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
 
     @ExceptionHandler(UsuarioNoEncontradoException.class)
     public ResponseEntity<Map<String, String>> manejarUsuarioNoEncontrado(
@@ -83,7 +91,7 @@ public class GlobalExceptionHandler {
                 .body(Map.of("mensaje", exception.getMessage()));
     }
 
-        @ExceptionHandler(GrupoLlenoException.class)
+    @ExceptionHandler(GrupoLlenoException.class)
     public ResponseEntity<Map<String, String>> manejarGrupoLleno(
             GrupoLlenoException exception) {
 
@@ -153,7 +161,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(Map.of("mensaje", exception.getMessage()));
     }
-    
+
     @ExceptionHandler(SesionNoEncontradaException.class)
     public ResponseEntity<Map<String, String>> manejarSesionNoEncontrada(
             SesionNoEncontradaException exception) {
@@ -287,5 +295,33 @@ public class GlobalExceptionHandler {
                         "mensaje",
                         exception.getMessage()
                 ));
+    }
+
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+    public ResponseEntity<Map<String, String>> manejarAutenticacion(
+            org.springframework.security.core.AuthenticationException exception) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<Map<String, String>> manejarPermiso(
+            org.springframework.security.access.AccessDeniedException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("mensaje", exception.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> manejarIntegridad(
+            org.springframework.dao.DataIntegrityViolationException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("mensaje", "Los datos ya existen o tienen una relación incompatible"));
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, String>> manejarTipoInvalido(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException exception) {
+        return ResponseEntity.badRequest()
+                .body(Map.of("mensaje", "El parámetro " + exception.getName() + " no tiene un formato válido"));
     }
 }

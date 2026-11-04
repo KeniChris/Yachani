@@ -1,7 +1,6 @@
 package com.yachaniapi.aviso.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -16,7 +15,6 @@ public class AvisoDTO {
     @Setter
     @NoArgsConstructor
     public static class CrearRequest {
-        @NotNull(message = "El ID del autor es obligatorio")
         private Long idAutor;
 
         @NotBlank(message = "El título es obligatorio")
@@ -32,7 +30,6 @@ public class AvisoDTO {
     @Setter
     @NoArgsConstructor
     public static class EditarRequest {
-        @NotNull(message = "El ID del autor es obligatorio")
         private Long idAutor;
 
         @NotBlank(message = "El título es obligatorio")

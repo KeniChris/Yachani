@@ -1,9 +1,14 @@
 package com.yachaniapi.grupoestudio.controller;
 
-import com.yachaniapi.grupoestudio.dto.GrupoEstudioDTO;
+import com.yachaniapi.grupoestudio.dto.request.*;
+import com.yachaniapi.grupoestudio.dto.response.*;
 import com.yachaniapi.grupoestudio.entity.TipoGrupo;
 import com.yachaniapi.grupoestudio.service.GrupoEstudioService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,108 +17,123 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/grupos")
+@RequiredArgsConstructor
 public class GrupoEstudioController {
 
-    private final GrupoEstudioService grupoEstudioService;
-
-    public GrupoEstudioController(GrupoEstudioService grupoEstudioService) {
-        this.grupoEstudioService = grupoEstudioService;
-    }
+    private final GrupoEstudioService service;
+    private final com.yachaniapi.usuario.service.UsuarioActualService usuarioActual;
 
     @PostMapping
-    public ResponseEntity<GrupoEstudioDTO.Response> crearGrupo(
-            @Valid @RequestBody GrupoEstudioDTO.CrearRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(grupoEstudioService.crearGrupo(request));
+    public ResponseEntity<GrupoResponse> crearGrupo(@Valid @RequestBody CrearGrupoRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.crearGrupo(request));
     }
 
-    @GetMapping
-    public ResponseEntity<List<GrupoEstudioDTO.Response>> listarGruposDeUsuario(
-            @RequestParam Long idUsuario) {
-        return ResponseEntity.ok(grupoEstudioService.listarGruposDeUsuario(idUsuario));
+    // Sin idUsuario explora grupos; con idUsuario devuelve sus grupos.
+    @GetMapping({"", "/explorar"})
+    public ResponseEntity<PaginaResponse<GrupoResponse>> listarGrupos(
+            @RequestParam(required = false) Long idUsuario,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String curso,
+            @RequestParam(required = false) String metodoEstudio,
+            @RequestParam(required = false) Integer cantidadIntegrantes,
+            @RequestParam(required = false) TipoGrupo tipoGrupo,
+            @PageableDefault(size = 12, sort = "idGrupo", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(service.listarGrupos(
+                idUsuario, query, curso, metodoEstudio, cantidadIntegrantes, tipoGrupo, pageable));
     }
 
     @GetMapping("/{idGrupo}")
-    public ResponseEntity<GrupoEstudioDTO.Response> obtenerGrupo(@PathVariable Long idGrupo) {
-        return ResponseEntity.ok(grupoEstudioService.obtenerGrupo(idGrupo));
+    public ResponseEntity<GrupoResponse> obtenerGrupo(@PathVariable Long idGrupo) {
+        return ResponseEntity.ok(service.obtenerGrupo(idGrupo));
     }
 
     @PatchMapping("/{idGrupo}/nombre")
-    public ResponseEntity<GrupoEstudioDTO.Response> editarNombre(
-            @PathVariable Long idGrupo,
-            @Valid @RequestBody GrupoEstudioDTO.EditarNombreRequest request) {
-        return ResponseEntity.ok(grupoEstudioService.editarNombre(idGrupo, request.getNombre()));
+    public ResponseEntity<GrupoResponse> editarNombre(
+            @PathVariable Long idGrupo, @Valid @RequestBody EditarNombreGrupoRequest request) {
+        return ResponseEntity.ok(service.editarNombre(idGrupo, request));
+    }
+
+    @PatchMapping("/{idGrupo}/capacidad")
+    public ResponseEntity<GrupoResponse> actualizarCapacidad(
+            @PathVariable Long idGrupo, @Valid @RequestBody EditarCapacidadGrupoRequest request) {
+        return ResponseEntity.ok(service.actualizarCapacidad(idGrupo, request));
     }
 
     @PatchMapping("/{idGrupo}/publicaciones")
-    public ResponseEntity<GrupoEstudioDTO.Response> cambiarPermitirPublicaciones(
-            @PathVariable Long idGrupo,
-            @Valid @RequestBody GrupoEstudioDTO.EditarPublicacionesRequest request) {
-        return ResponseEntity.ok(
-                grupoEstudioService.cambiarPermitirPublicaciones(idGrupo, request.getPermitirPublicaciones()));
+    public ResponseEntity<GrupoResponse> cambiarPublicaciones(
+            @PathVariable Long idGrupo, @Valid @RequestBody EditarPublicacionesGrupoRequest request) {
+        return ResponseEntity.ok(service.cambiarPermitirPublicaciones(idGrupo, request));
     }
 
     @GetMapping("/{idGrupo}/integrantes")
-    public ResponseEntity<List<GrupoEstudioDTO.IntegranteResponse>> listarIntegrantes(
-            @PathVariable Long idGrupo) {
-        return ResponseEntity.ok(grupoEstudioService.listarIntegrantes(idGrupo));
+    public ResponseEntity<List<IntegranteGrupoResponse>> listarIntegrantes(@PathVariable Long idGrupo) {
+        return ResponseEntity.ok(service.listarIntegrantes(idGrupo));
     }
 
     @DeleteMapping("/{idGrupo}/integrantes/{idEstudiante}")
     public ResponseEntity<Void> eliminarIntegrante(
-            @PathVariable Long idGrupo,
-            @PathVariable Long idEstudiante) {
-        grupoEstudioService.eliminarIntegrante(idGrupo, idEstudiante);
+            @PathVariable Long idGrupo, @PathVariable Long idEstudiante) {
+        service.eliminarIntegrante(idGrupo, idEstudiante);
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/{idGrupo}/solicitudes")
-    public ResponseEntity<List<GrupoEstudioDTO.SolicitudPendienteResponse>> listarSolicitudesPendientes(
-            @PathVariable Long idGrupo) {
-        return ResponseEntity.ok(grupoEstudioService.listarSolicitudesPendientes(idGrupo));
-    }
-
-    @PatchMapping("/{idGrupo}/capacidad")
-    public ResponseEntity<GrupoEstudioDTO.Response> actualizarCapacidad(
-            @PathVariable Long idGrupo,
-            @Valid @RequestBody GrupoEstudioDTO.EditarCapacidadRequest request) {
-        return ResponseEntity.ok(grupoEstudioService.actualizarCapacidad(idGrupo, request));
-    }
-
     @PostMapping("/{idGrupo}/solicitudes")
-    public ResponseEntity<GrupoEstudioDTO.SolicitudResponse> solicitarUnirse(
+    public ResponseEntity<SolicitudGrupoResponse> solicitarUnirse(
+            @PathVariable Long idGrupo, @Valid @RequestBody SolicitudGrupoRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.solicitarUnirse(idGrupo, request));
+    }
+
+    @GetMapping("/{idGrupo}/solicitudes")
+    public ResponseEntity<PaginaResponse<SolicitudPendienteResponse>> listarSolicitudesPendientes(
             @PathVariable Long idGrupo,
-            @Valid @RequestBody GrupoEstudioDTO.SolicitudRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(grupoEstudioService.solicitarUnirse(idGrupo, request));
+            @PageableDefault(size = 12, sort = "fechaSolicitud", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(service.listarSolicitudesPendientes(idGrupo, pageable));
     }
 
-    // Solicitudes que envió un estudiante ("Mis solicitudes").
     @GetMapping("/solicitudes")
-    public ResponseEntity<List<GrupoEstudioDTO.MiSolicitudResponse>> listarSolicitudesDeEstudiante(
-            @RequestParam Long idEstudiante) {
-        return ResponseEntity.ok(grupoEstudioService.listarSolicitudesDeEstudiante(idEstudiante));
+    public ResponseEntity<PaginaResponse<SolicitudPropiaResponse>> listarMisSolicitudes(
+            @RequestParam(required = false) Long idEstudiante,
+            @PageableDefault(size = 12, sort = "fechaSolicitud", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(service.listarMisSolicitudes(idEstudiante, pageable));
     }
 
-    @PutMapping("/solicitudes/{idSolicitud}/aceptar")
-    public ResponseEntity<GrupoEstudioDTO.SolicitudResponse> aceptarSolicitud(@PathVariable Long idSolicitud) {
-        return ResponseEntity.ok(grupoEstudioService.aceptarSolicitud(idSolicitud));
+    // PUT conserva la ruta actual; PATCH expresa la actualización parcial.
+    @RequestMapping(value = "/solicitudes/{idSolicitud}/aceptar",
+            method = {RequestMethod.PUT, RequestMethod.PATCH})
+    public ResponseEntity<SolicitudGrupoResponse> aceptarSolicitud(@PathVariable Long idSolicitud) {
+        return ResponseEntity.ok(service.aceptarSolicitud(idSolicitud));
     }
 
-    @PutMapping("/solicitudes/{idSolicitud}/rechazar")
-    public ResponseEntity<GrupoEstudioDTO.SolicitudResponse> rechazarSolicitud(@PathVariable Long idSolicitud) {
-        return ResponseEntity.ok(grupoEstudioService.rechazarSolicitud(idSolicitud));
+    @RequestMapping(value = "/solicitudes/{idSolicitud}/rechazar",
+            method = {RequestMethod.PUT, RequestMethod.PATCH})
+    public ResponseEntity<SolicitudGrupoResponse> rechazarSolicitud(@PathVariable Long idSolicitud) {
+        return ResponseEntity.ok(service.rechazarSolicitud(idSolicitud));
     }
 
+    // Alias conservados para las consultas existentes.
     @GetMapping("/buscar")
-    public ResponseEntity<List<GrupoEstudioDTO.Response>> buscarGrupos(@RequestParam(name = "query") String keyword) {
-        return ResponseEntity.ok(grupoEstudioService.buscarGrupos(keyword));
+    public ResponseEntity<PaginaResponse<GrupoResponse>> buscarGrupos(
+            @RequestParam String query,
+            @PageableDefault(size = 12, sort = "idGrupo", direction = Sort.Direction.DESC) Pageable pageable) {
+        if (query.isBlank()) throw new IllegalArgumentException("Ingresa un curso o tema");
+        return ResponseEntity.ok(service.listarGrupos(null, query, null, null, null, null, pageable));
     }
 
     @GetMapping("/filtrar")
-    public ResponseEntity<List<GrupoEstudioDTO.Response>> filtrarGrupos(
+    public ResponseEntity<PaginaResponse<GrupoResponse>> filtrarGrupos(
             @RequestParam(required = false) String curso,
             @RequestParam(required = false) String metodoEstudio,
             @RequestParam(required = false) Integer cantidadIntegrantes,
-            @RequestParam(required = false) TipoGrupo tipoGrupo) {
-        return ResponseEntity.ok(grupoEstudioService.filtrarGrupos(curso, metodoEstudio, cantidadIntegrantes, tipoGrupo));
+            @RequestParam(required = false) TipoGrupo tipoGrupo,
+            @PageableDefault(size = 12, sort = "idGrupo", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(service.listarGrupos(
+                null, null, curso, metodoEstudio, cantidadIntegrantes, tipoGrupo, pageable));
+    }
+
+    @GetMapping("/mis-grupos")
+    public ResponseEntity<PaginaResponse<GrupoResponse>> listarMisGrupos(
+            @PageableDefault(size = 12, sort = "idGrupo", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(service.listarGrupos(
+                usuarioActual.idUsuario(), null, null, null, null, null, pageable));
     }
 }

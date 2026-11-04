@@ -15,6 +15,11 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class Tutor extends Usuario {
+    @Column(length = 120)
+    private String universidad;
+    @Column(length = 120)
+    private String carrera;
+
     /**
      * Descripción que el tutor muestra en su perfil
      */

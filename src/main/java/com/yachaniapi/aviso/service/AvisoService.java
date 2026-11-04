@@ -11,7 +11,7 @@ import com.yachaniapi.grupoestudio.repository.GrupoEstudioRepository;
 import com.yachaniapi.usuario.entity.Usuario;
 import com.yachaniapi.usuario.exception.UsuarioNoEncontradoException;
 import com.yachaniapi.usuario.repository.UsuarioRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,12 +23,18 @@ public class AvisoService {
     private final GrupoEstudioRepository grupoEstudioRepository;
     private final UsuarioRepository usuarioRepository;
     private final AvisoMapper avisoMapper;
+    private final com.yachaniapi.usuario.service.UsuarioActualService usuarioActual;
+    private final com.yachaniapi.grupoestudio.service.AccesoGrupoService acceso;
 
     public AvisoService(
             AvisoRepository avisoRepository,
             GrupoEstudioRepository grupoEstudioRepository,
             UsuarioRepository usuarioRepository,
-            AvisoMapper avisoMapper) {
+            AvisoMapper avisoMapper,
+            com.yachaniapi.usuario.service.UsuarioActualService usuarioActual,
+            com.yachaniapi.grupoestudio.service.AccesoGrupoService acceso) {
+        this.usuarioActual = usuarioActual;
+        this.acceso = acceso;
 
         this.avisoRepository = avisoRepository;
         this.grupoEstudioRepository = grupoEstudioRepository;
@@ -39,10 +45,9 @@ public class AvisoService {
     @Transactional
     public AvisoDTO.Response publicarAviso(Long idGrupo, AvisoDTO.CrearRequest request) {
 
-        GrupoEstudio grupo = buscarGrupo(idGrupo);
+        GrupoEstudio grupo = acceso.administrador(idGrupo, true);
 
-        Usuario autor = usuarioRepository.findById(request.getIdAutor())
-                .orElseThrow(() -> new UsuarioNoEncontradoException("Usuario no encontrado"));
+        Usuario autor = usuarioActual.exigirPropio(request.getIdAutor());
 
         validarCreadorDelGrupo(grupo, autor.getIdUsuario());
 
@@ -55,8 +60,9 @@ public class AvisoService {
         return avisoMapper.toResponse(avisoRepository.save(aviso));
     }
 
+    @Transactional(readOnly = true)
     public List<AvisoDTO.Response> listarAvisos(Long idGrupo) {
-        buscarGrupo(idGrupo);
+        acceso.miembro(idGrupo, false);
         return avisoRepository.findByGrupo_IdGrupoOrderByFechaPublicacionDesc(idGrupo)
                 .stream()
                 .map(avisoMapper::toResponse)
@@ -66,7 +72,7 @@ public class AvisoService {
     @Transactional
     public AvisoDTO.Response editarAviso(Long idGrupo, Long idAviso, AvisoDTO.EditarRequest request) {
 
-        GrupoEstudio grupo = buscarGrupo(idGrupo);
+        GrupoEstudio grupo = acceso.administrador(idGrupo, true);
         validarCreadorDelGrupo(grupo, request.getIdAutor());
 
         Aviso aviso = avisoRepository.findByIdAvisoAndGrupo_IdGrupo(idAviso, idGrupo)
@@ -84,7 +90,8 @@ public class AvisoService {
     }
 
     private void validarCreadorDelGrupo(GrupoEstudio grupo, Long idAutor) {
-        if (!grupo.getCreador().getIdUsuario().equals(idAutor)) {
+        usuarioActual.exigirPropio(idAutor);
+        if (!grupo.getCreador().getIdUsuario().equals(usuarioActual.idUsuario())) {
             throw new AutorNoAutorizadoException("Solo quien administra el grupo puede publicar avisos");
         }
     }

@@ -1,80 +1,59 @@
 package com.yachaniapi.sesion.service;
 
-import com.yachaniapi.sesion.entity.NotificacionSesion;
-import com.yachaniapi.sesion.entity.SesionEstudio;
-import com.yachaniapi.sesion.repository.NotificacionSesionRepository;
-import com.yachaniapi.usuario.entity.Estudiante;
-import org.springframework.stereotype.Service;
-
+import com.yachaniapi.notificacion.repository.NotificacionRepository;
+import com.yachaniapi.notificacion.service.NotificacionService;
 import com.yachaniapi.sesion.dto.NotificacionResponse;
-import com.yachaniapi.sesion.mapper.SesionEstudioMapper;
-import com.yachaniapi.usuario.entity.Usuario;
-import com.yachaniapi.usuario.exception.UsuarioNoEncontradoException;
-import com.yachaniapi.usuario.exception.UsuarioNoEsEstudianteException;
-import com.yachaniapi.usuario.repository.UsuarioRepository;
-import jakarta.transaction.Transactional;
-
+import com.yachaniapi.sesion.entity.SesionEstudio;
+import com.yachaniapi.usuario.service.UsuarioActualService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class NotificacionSesionService {
-
     public static final String TIPO_RECORDATORIO = "RECORDATORIO";
     public static final String TIPO_CAMBIO = "CAMBIO";
-    private final NotificacionSesionRepository notificacionRepository;
-    private final UsuarioRepository usuarioRepository;
-    private final SesionEstudioMapper sesionMapper;
-
-    public NotificacionSesionService(
-            NotificacionSesionRepository notificacionRepository,
-            UsuarioRepository usuarioRepository,
-            SesionEstudioMapper sesionMapper) {
-
-        this.notificacionRepository = notificacionRepository;
-        this.usuarioRepository = usuarioRepository;
-        this.sesionMapper = sesionMapper;
-    }
+    private final NotificacionService notificaciones;
+    private final NotificacionRepository repositorio;
+    private final UsuarioActualService usuarioActual;
 
     public void enviarRecordatorio(SesionEstudio sesion) {
-        guardarParaTodos(sesion, TIPO_RECORDATORIO);
+        notificaciones.notificarSesion(sesion, "SESION_RECORDATORIO");
     }
 
     public void notificarCambio(SesionEstudio sesion) {
-        guardarParaTodos(sesion, TIPO_CAMBIO);
+        notificaciones.notificarSesion(sesion, "SESION_MODIFICADA");
+    }
+
+    public void notificarCancelacion(SesionEstudio sesion) {
+        notificaciones.notificarSesion(sesion, "SESION_CANCELADA");
     }
 
     public void eliminarRecordatorios(SesionEstudio sesion) {
-        notificacionRepository.deleteBySesion_IdSesionAndTipo(sesion.getIdSesion(), TIPO_RECORDATORIO);
+        notificaciones.eliminarRecordatoriosPendientes(sesion);
     }
 
-    @Transactional
+    // Ruta antigua conservada; ahora lee la misma tabla de la bandeja general.
+    @Transactional(readOnly = true)
     public List<NotificacionResponse> listarNotificaciones(Long idEstudiante) {
-
-        Usuario usuario = usuarioRepository.findById(idEstudiante)
-                .orElseThrow(() -> new UsuarioNoEncontradoException("Estudiante no encontrado"));
-
-        if (!(usuario instanceof com.yachaniapi.usuario.entity.Estudiante)) {
-            throw new UsuarioNoEsEstudianteException("Solo los estudiantes reciben notificaciones de sesiones");
-        }
-
-        return notificacionRepository
-                .findByEstudiante_IdUsuarioAndSesion_EstadoOrderByFechaCreacionDesc(
-                        idEstudiante, SesionEstudioService.ESTADO_PROGRAMADA)
-                .stream()
-                .map(sesionMapper::toNotificacionResponse)
-                .toList();
-    }
-
-    private void guardarParaTodos(SesionEstudio sesion, String tipo) {
-
-        for (Estudiante estudiante : sesion.getGrupo().getParticipantes()) {
-
-            NotificacionSesion notificacion = new NotificacionSesion();
-            notificacion.setSesion(sesion);
-            notificacion.setEstudiante(estudiante);
-            notificacion.setTipo(tipo);
-
-            notificacionRepository.save(notificacion);
-        }
+        Long id = usuarioActual.exigirPropio(idEstudiante).getIdUsuario();
+        usuarioActual.estudianteActual();
+        return repositorio.findByDestinatario_IdUsuarioAndSesionIsNotNullOrderByFechaCreacionDesc(id)
+                .stream().map(n -> {
+                    var sesion = n.getSesion();
+                    String titulo = switch (n.getTipo()) {
+                        case "SESION_RECORDATORIO" -> "Recordatorio: tienes una sesión próxima";
+                        case "SESION_CANCELADA" -> "La sesión fue cancelada";
+                        default -> "La sesión fue modificada";
+                    };
+                    return new NotificacionResponse(n.getIdNotificacion(), sesion.getIdSesion(),
+                            n.getTipo(), titulo, sesion.getGrupo().getNombre(), sesion.getTema(),
+                            sesion.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                            sesion.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("HH:mm")),
+                            sesion.getLugar(), n.getFechaCreacion());
+                }).toList();
     }
 }

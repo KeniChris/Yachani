@@ -28,12 +28,18 @@ public class ChatService {
     private final GrupoEstudioRepository grupoEstudioRepository;
     private final UsuarioRepository usuarioRepository;
     private final MensajeChatMapper mensajeChatMapper;
+    private final com.yachaniapi.usuario.service.UsuarioActualService usuarioActual;
+    private final com.yachaniapi.grupoestudio.service.AccesoGrupoService acceso;
 
     public ChatService(
             MensajeChatRepository mensajeChatRepository,
             GrupoEstudioRepository grupoEstudioRepository,
             UsuarioRepository usuarioRepository,
-            MensajeChatMapper mensajeChatMapper) {
+            MensajeChatMapper mensajeChatMapper,
+            com.yachaniapi.usuario.service.UsuarioActualService usuarioActual,
+            com.yachaniapi.grupoestudio.service.AccesoGrupoService acceso) {
+        this.usuarioActual = usuarioActual;
+        this.acceso = acceso;
 
         this.mensajeChatRepository = mensajeChatRepository;
         this.grupoEstudioRepository = grupoEstudioRepository;
@@ -46,8 +52,7 @@ public class ChatService {
 
         GrupoEstudio grupo = buscarGrupo(idGrupo);
 
-        Usuario autor = usuarioRepository.findById(request.getIdUsuario())
-                .orElseThrow(() -> new UsuarioNoEncontradoException("Usuario no encontrado"));
+        Usuario autor = usuarioActual.exigirPropio(request.getIdUsuario());
 
         validarPertenencia(idGrupo, autor.getIdUsuario());
 
@@ -76,11 +81,12 @@ public class ChatService {
     @Transactional
     public String eliminarMensaje(Long idGrupo, Long idMensaje, Long idUsuario) {
 
+        validarPertenencia(idGrupo, idUsuario);
         MensajeChat mensaje = mensajeChatRepository
                 .findByIdMensajeAndGrupo_IdGrupo(idMensaje, idGrupo)
                 .orElseThrow(() -> new MensajeNoEncontradoException("El mensaje no existe"));
 
-        if (!mensaje.getAutor().getIdUsuario().equals(idUsuario)) {
+        if (!mensaje.getAutor().getIdUsuario().equals(usuarioActual.idUsuario())) {
             throw new MensajeAjenoException("Solo puedes eliminar tus propios mensajes");
         }
 
@@ -105,8 +111,7 @@ public class ChatService {
     }
 
     private void validarPertenencia(Long idGrupo, Long idUsuario) {
-        if (!mensajeChatRepository.usuarioPerteneceAlGrupo(idGrupo, idUsuario)) {
-            throw new UsuarioNoPerteneceAlGrupoException("No perteneces a este grupo");
-        }
+        usuarioActual.exigirPropio(idUsuario);
+        acceso.miembro(idGrupo, false);
     }
 }

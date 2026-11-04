@@ -36,7 +36,11 @@ public class ResenaMapper {
                 tutor.getCorreo(),
                 promedio,
                 totalResenas,
-                mensaje
+                mensaje,
+                tutor.getPresentacion(),
+                tutor.getMetodoEnsenanza(),
+                tutor.getUniversidad(),
+                tutor.getCarrera()
         );
     }
 }

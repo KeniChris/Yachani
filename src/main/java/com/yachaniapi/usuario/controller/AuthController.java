@@ -1,6 +1,7 @@
 package com.yachaniapi.usuario.controller;
 
 import com.yachaniapi.usuario.dto.LoginRequest;
+import com.yachaniapi.usuario.dto.LoginResponse;
 import com.yachaniapi.usuario.dto.RegistroRequest;
 import com.yachaniapi.usuario.dto.UsuarioResponse;
 import com.yachaniapi.usuario.service.AuthService;
@@ -38,7 +39,7 @@ public class AuthController {
      */
     @PostMapping("/registro")
     public ResponseEntity<UsuarioResponse> registrar(
-            @RequestBody RegistroRequest request) {
+            @Valid @RequestBody RegistroRequest request) {
 
         UsuarioResponse respuesta = authService.registrar(request);
 
@@ -51,10 +52,10 @@ public class AuthController {
      * Valida las credenciales para iniciar sesión.
      */
     @PostMapping("/login")
-    public ResponseEntity<UsuarioResponse> iniciarSesion(
-            @RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> iniciarSesion(
+            @Valid @RequestBody LoginRequest request) {
 
-        UsuarioResponse respuesta = authService.iniciarSesion(request);
+        LoginResponse respuesta = authService.iniciarSesion(request);
 
         return ResponseEntity.ok(respuesta);
     }
@@ -107,5 +108,9 @@ public class AuthController {
                         "Contraseña restablecida correctamente"
                 )
         );
+    }
+    @GetMapping("/me")
+    public ResponseEntity<UsuarioResponse> consultarActual() {
+        return ResponseEntity.ok(authService.consultarActual());
     }
 }

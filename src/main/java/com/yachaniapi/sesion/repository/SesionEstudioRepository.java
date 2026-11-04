@@ -16,6 +16,7 @@ public interface SesionEstudioRepository extends JpaRepository<SesionEstudio, Lo
 
     Optional<SesionEstudio> findByIdSesionAndGrupo_IdGrupo(Long idSesion, Long idGrupo);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     List<SesionEstudio> findByEstadoAndRecordatorioEnviadoFalseAndFechaHoraInicioBetween(
             String estado, LocalDateTime desde, LocalDateTime hasta);
 }

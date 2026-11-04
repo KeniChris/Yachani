@@ -21,4 +21,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
      * Se utilizará para evitar registros duplicados.
      */
     boolean existsByCorreoIgnoreCase(String correo);
+
+    @org.springframework.data.jpa.repository.Query(value =
+            "select id_usuario from usuarios where id_usuario = :id for update", nativeQuery = true)
+    Optional<Long> bloquearPorId(@org.springframework.data.repository.query.Param("id") Long id);
+
 }

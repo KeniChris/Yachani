@@ -49,7 +49,11 @@ public class GrupoEstudio {
     @JoinTable(
             name = "grupo_miembros",
             joinColumns = @JoinColumn(name = "id_grupo"),
-            inverseJoinColumns = @JoinColumn(name = "id_estudiante")
+            inverseJoinColumns = @JoinColumn(name = "id_estudiante"),
+            uniqueConstraints = @UniqueConstraint(
+                    name = "uk_grupo_miembro",
+                    columnNames = {"id_grupo", "id_estudiante"}
+            )
     )
     private List<Estudiante> participantes = new ArrayList<>();
 

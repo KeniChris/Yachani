@@ -34,7 +34,7 @@ public class ChatController {
     @GetMapping
     public ResponseEntity<List<MensajeChatResponse>> listarMensajes(
             @PathVariable Long idGrupo,
-            @RequestParam Long idUsuario) {
+            @RequestParam(required = false) Long idUsuario) {
 
         return ResponseEntity.ok(chatService.listarMensajes(idGrupo, idUsuario));
     }
@@ -43,7 +43,7 @@ public class ChatController {
     public ResponseEntity<Map<String, String>> eliminarMensaje(
             @PathVariable Long idGrupo,
             @PathVariable Long idMensaje,
-            @RequestParam Long idUsuario) {
+            @RequestParam(required = false) Long idUsuario) {
 
         String mensaje = chatService.eliminarMensaje(idGrupo, idMensaje, idUsuario);
 
