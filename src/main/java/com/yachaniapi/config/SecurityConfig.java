@@ -25,7 +25,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST,
                                 "/auth/registro", "/auth/login", "/auth/recuperar-contrasena",
-                                "/auth/verificar-codigo", "/auth/restablecer-contrasena").permitAll()
+                                "/auth/verificar-codigo", "/auth/restablecer-contrasena",
+                                "/contacto").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors
