@@ -44,7 +44,7 @@ public class TemaGrupoService {
         if (temas.countByGrupo_IdGrupo(idGrupo) >= maxTemas) {
             throw new RecursosException(
                     HttpStatus.CONFLICT,
-                    "Superó el número de temas: el máximo es " + maxTemas
+                    "Este grupo alcanzó el límite de " + maxTemas + " temas"
             );
         }
 

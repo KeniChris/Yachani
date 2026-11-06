@@ -33,7 +33,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> manejarConflictoGrupo(
             ConflictoGrupoException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(Map.of("mensaje", exception.getMessage()));
+                .body(Map.of("mensaje", exception.getMessage(), "codigo", exception.getCodigo()));
     }
 
     @ExceptionHandler(UsuarioNoEncontradoException.class)
@@ -96,7 +96,7 @@ public class GlobalExceptionHandler {
             GrupoLlenoException exception) {
 
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(Map.of("mensaje", exception.getMessage()));
+                .body(Map.of("mensaje", exception.getMessage(), "codigo", "GRUPO_LLENO"));
     }
 
     @ExceptionHandler(GrupoNoEncontradoException.class)
