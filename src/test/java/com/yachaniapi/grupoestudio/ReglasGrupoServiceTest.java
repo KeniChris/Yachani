@@ -32,6 +32,36 @@ class ReglasGrupoServiceTest {
     }
 
     @Test
+    void tutorDeGrupoAntiguoMalClasificadoNoCuentaComoEstudiante() {
+        GrupoEstudio grupo = grupo(TipoGrupo.ESTUDIANTES, tutor(1L));
+        grupo.getParticipantes().add(estudiante(2L));
+        grupo.getParticipantes().add(estudiante(3L));
+        assertEquals(TipoGrupo.TUTOR, reglas.tipoGrupo(grupo));
+        assertEquals(2, reglas.integrantesActuales(grupo));
+        assertEquals(0, reglas.cuposDisponibles(grupo));
+    }
+
+    @Test
+    void unRegistroAntiguoDelTutorEnMiembrosNoConsumeCupo() {
+        GrupoEstudio grupo = grupo(TipoGrupo.TUTOR, tutor(1L));
+        grupo.getParticipantes().add(estudiante(1L));
+        grupo.getParticipantes().add(estudiante(2L));
+        grupo.getParticipantes().add(estudiante(2L));
+        assertEquals(1, reglas.integrantesActuales(grupo));
+        assertEquals(1, reglas.cuposDisponibles(grupo));
+    }
+
+    @Test
+    void elTipoAntiguoNoAbrePublicacionesCerradasDeUnTutor() {
+        GrupoEstudio grupo = grupo(TipoGrupo.ESTUDIANTES, tutor(1L));
+        grupo.getParticipantes().add(estudiante(2L));
+        grupo.setPermitirPublicaciones(false);
+        assertFalse(reglas.publicacionesAbiertas(grupo));
+        assertFalse(reglas.puedeGestionarTemas(grupo, estudiante(2L)));
+        assertFalse(reglas.puedePublicarRecursos(grupo, estudiante(2L)));
+    }
+
+    @Test
     void publicacionesCerradasPermitenAlTutorPeroNoAlIntegrante() {
         Tutor tutor = tutor(1L);
         Estudiante alumno = estudiante(2L);

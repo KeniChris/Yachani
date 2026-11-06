@@ -129,7 +129,9 @@ public class GrupoEstudioService {
                     cb.equal(cb.size(root.get("participantes")), cantidadIntegrantes));
         }
         if (tipoGrupo != null) {
-            filtros = filtros.and((root, consulta, cb) -> cb.equal(root.get("tipoGrupo"), tipoGrupo));
+            filtros = filtros.and((root, consulta, cb) -> cb.equal(
+                    root.get("creador").type(),
+                    tipoGrupo == TipoGrupo.TUTOR ? Tutor.class : Estudiante.class));
         }
         return PaginaResponse.desde(grupoRepository.findAll(filtros, pageable)
                 .map(grupo -> respuesta(grupo, null)));
@@ -163,7 +165,7 @@ public class GrupoEstudioService {
     public GrupoResponse cambiarPermitirPublicaciones(
             Long idGrupo, EditarPublicacionesGrupoRequest request) {
         GrupoEstudio grupo = acceso.administrador(idGrupo, true);
-        if (grupo.getTipoGrupo() != TipoGrupo.TUTOR) {
+        if (reglas.tipoGrupo(grupo) != TipoGrupo.TUTOR) {
             throw new IllegalArgumentException(
                     "Los grupos entre estudiantes siempre permiten publicar recursos");
         }
@@ -181,7 +183,7 @@ public class GrupoEstudioService {
         grupo.getParticipantes().forEach(p -> integrantes.putIfAbsent(p.getIdUsuario(), p));
         return integrantes.values().stream().map(usuario -> {
             boolean administrador = reglas.esAdministrador(grupo, usuario.getIdUsuario());
-            String tipo = administrador && grupo.getTipoGrupo() == TipoGrupo.TUTOR
+            String tipo = administrador && reglas.tipoGrupo(grupo) == TipoGrupo.TUTOR
                     ? "TUTOR" : "ESTUDIANTE";
             return mapper.toIntegrante(usuario, nombreCompleto(usuario), tipo, administrador);
         }).toList();
@@ -207,12 +209,12 @@ public class GrupoEstudioService {
         usuarioActual.exigirPropio(request.idEstudiante());
         Estudiante estudiante = usuarioActual.estudianteActual();
         if (reglas.esIntegrante(grupo, estudiante.getIdUsuario())) {
-            throw new ConflictoGrupoException("Ya perteneces a este grupo");
+            throw new ConflictoGrupoException("YA_ES_INTEGRANTE", "Ya perteneces a este grupo");
         }
         var anterior = solicitudRepository.findByGrupo_IdGrupoAndEstudiante_IdUsuario(
                 idGrupo, estudiante.getIdUsuario());
         if (anterior.filter(s -> "PENDIENTE".equals(s.getEstado())).isPresent()) {
-            throw new ConflictoGrupoException("Ya tienes una solicitud pendiente para el grupo");
+            throw new ConflictoGrupoException("SOLICITUD_PENDIENTE", "Ya tienes una solicitud pendiente para el grupo");
         }
         if (reglas.cuposDisponibles(grupo) == 0) {
             throw new GrupoLlenoException("El grupo ya alcanzó su capacidad máxima");
@@ -311,7 +313,7 @@ public class GrupoEstudioService {
         GrupoEstudio grupo = grupoRepository.buscarConBloqueo(idGrupo)
                 .orElseThrow(() -> new GrupoNoEncontradoException("El grupo de estudio no existe"));
         if (!"ACTIVO".equals(grupo.getEstado())) {
-            throw new ConflictoGrupoException("El grupo no está activo");
+            throw new ConflictoGrupoException("GRUPO_INACTIVO", "El grupo no está activo");
         }
         return grupo;
     }
@@ -333,9 +335,9 @@ public class GrupoEstudioService {
 
     private GrupoResponse respuesta(GrupoEstudio grupo, String mensaje) {
         return mapper.toResponse(
-                grupo, reglas.integrantesActuales(grupo), reglas.cuposDisponibles(grupo),
+                grupo, reglas.tipoGrupo(grupo), reglas.integrantesActuales(grupo), reglas.cuposDisponibles(grupo),
                 reglas.publicacionesAbiertas(grupo), nombreCompleto(grupo.getCreador()),
-                grupo.getTipoGrupo() == TipoGrupo.TUTOR ? "TUTOR" : "ESTUDIANTE", mensaje
+                reglas.tipoGrupo(grupo) == TipoGrupo.TUTOR ? "TUTOR" : "ESTUDIANTE", mensaje
         );
     }
 
