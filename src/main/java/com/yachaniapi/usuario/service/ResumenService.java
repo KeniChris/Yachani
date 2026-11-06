@@ -12,7 +12,9 @@ import com.yachaniapi.usuario.exception.UsuarioNoEsEstudianteException;
 import com.yachaniapi.usuario.mapper.ResumenMapper;
 import com.yachaniapi.usuario.repository.ResumenRepository;
 import com.yachaniapi.usuario.repository.UsuarioRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.MediaType;
@@ -30,6 +32,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Service
+@Transactional(readOnly = true)
 public class ResumenService {
 
     // tamaño max de 1 MB.
@@ -40,19 +43,22 @@ public class ResumenService {
             Set.of("pdf", "png", "jpg", "jpeg");
 
     // Carpeta del proyecto donde se guardarán los archivos
-    private final Path directorioArchivos = Paths.get(
-            "uploads",
-            "resumenes"
-    ).toAbsolutePath().normalize();
+    private final Path directorioArchivos;
 
     private final ResumenRepository resumenRepository;
     private final UsuarioRepository usuarioRepository;
     private final ResumenMapper resumenMapper;
+    private final UsuarioActualService usuarioActual;
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ResumenService.class);
 
     public ResumenService(
             ResumenRepository resumenRepository,
             UsuarioRepository usuarioRepository,
-            ResumenMapper resumenMapper) {
+            ResumenMapper resumenMapper,
+            UsuarioActualService usuarioActual,
+            @org.springframework.beans.factory.annotation.Value("${yachani.resumenes.directorio:uploads/resumenes}") String directorio) {
+        this.usuarioActual = usuarioActual;
+        this.directorioArchivos = Paths.get(directorio).toAbsolutePath().normalize();
 
         this.resumenRepository = resumenRepository;
         this.usuarioRepository = usuarioRepository;
@@ -68,6 +74,7 @@ public class ResumenService {
             String titulo,
             MultipartFile archivo) {
 
+        exigirPropietario(idUsuario);
         Estudiante estudiante = buscarEstudiante(idUsuario);
 
         validarTitulo(titulo);
@@ -78,6 +85,7 @@ public class ResumenService {
         );
 
         Path rutaArchivo = guardarArchivo(archivo, nombreOriginal);
+        limpiarSiRollback(rutaArchivo);
 
         Resumen resumen = new Resumen();
         resumen.setTitulo(titulo.trim());
@@ -102,6 +110,7 @@ public class ResumenService {
             String titulo,
             MultipartFile archivo) {
 
+        exigirPropietario(idUsuario);
         buscarEstudiante(idUsuario);
 
         Resumen resumen = buscarResumen(idUsuario, idResumen);
@@ -115,7 +124,8 @@ public class ResumenService {
 
         Path nuevaRuta = guardarArchivo(archivo, nombreOriginal);
 
-        eliminarArchivoAnterior(resumen.getRutaArchivo());
+        limpiarSiRollback(nuevaRuta);
+        eliminarDespuesDelCommit(resumen.getRutaArchivo());
 
         resumen.setTitulo(titulo.trim());
         resumen.setNombreArchivo(nombreOriginal);
@@ -177,6 +187,9 @@ public class ResumenService {
                     .toAbsolutePath()
                     .normalize();
 
+            if (!ruta.startsWith(directorioArchivos)) {
+                throw new ResumenNoEncontradoException("El archivo del resumen no está disponible");
+            }
             Resource archivo = new UrlResource(ruta.toUri());
 
             if (!archivo.exists() || !archivo.isReadable()) {
@@ -250,7 +263,7 @@ public class ResumenService {
 
         if (archivo.getSize() > TAMANO_MAXIMO) {
             throw new ArchivoResumenInvalidoException(
-                    "El archivo no puede superar los 5 MB"
+                    "El archivo no puede superar 1 MB"
             );
         }
 
@@ -278,50 +291,21 @@ public class ResumenService {
             MultipartFile archivo,
             String nombreOriginal) {
 
+        String extension = obtenerExtension(nombreOriginal);
+        Path rutaDestino = directorioArchivos.resolve(UUID.randomUUID() + "." + extension).normalize();
         try {
             Files.createDirectories(directorioArchivos);
 
-            String extension = obtenerExtension(nombreOriginal);
-            String nombreGuardado =
-                    UUID.randomUUID() + "." + extension;
-
-            Path rutaDestino = directorioArchivos
-                    .resolve(nombreGuardado)
-                    .normalize();
-
-            Files.copy(
-                    archivo.getInputStream(),
-                    rutaDestino,
-                    StandardCopyOption.REPLACE_EXISTING
-            );
+            try (var entrada = archivo.getInputStream()) {
+                Files.copy(entrada, rutaDestino, StandardCopyOption.REPLACE_EXISTING);
+            }
 
             return rutaDestino;
 
         } catch (IOException exception) {
+            limpiarSinInterrumpir(rutaDestino.toString());
             throw new ArchivoResumenInvalidoException(
                     "No se pudo guardar el archivo"
-            );
-        }
-    }
-
-    /**
-     * Elimina el archivo anterior cuando un resumen es reemplazado
-     */
-    private void eliminarArchivoAnterior(String rutaArchivo) {
-
-        if (rutaArchivo == null || rutaArchivo.isBlank()) {
-            return;
-        }
-
-        try {
-            Files.deleteIfExists(
-                    Paths.get(rutaArchivo)
-                            .toAbsolutePath()
-                            .normalize()
-            );
-        } catch (IOException exception) {
-            throw new ArchivoResumenInvalidoException(
-                    "No se pudo reemplazar el archivo anterior"
             );
         }
     }
@@ -337,9 +321,9 @@ public class ResumenService {
             );
         }
 
-        return Paths.get(nombreArchivo)
-                .getFileName()
-                .toString();
+        return Paths.get(nombreArchivo.replace('\\', '/'))
+                .getFileName().toString()
+                .replace("\r", "_").replace("\n", "_").replace("\"", "_");
     }
 
     private String obtenerExtension(String nombreArchivo) {
@@ -359,12 +343,52 @@ public class ResumenService {
     }
 
     private String obtenerTipoArchivo(MultipartFile archivo) {
+        return switch (obtenerExtension(archivo.getOriginalFilename())) {
+            case "pdf" -> "application/pdf";
+            case "png" -> "image/png";
+            default -> "image/jpeg";
+        };
+    }
 
-        if (archivo.getContentType() == null
-                || archivo.getContentType().isBlank()) {
-            return MediaType.APPLICATION_OCTET_STREAM_VALUE;
+    private void exigirPropietario(Long idUsuario) {
+        usuarioActual.exigirPropio(idUsuario);
+        usuarioActual.estudianteActual();
+    }
+
+    private void limpiarSiRollback(Path ruta) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int estado) {
+                if (estado == STATUS_ROLLED_BACK) limpiarSinInterrumpir(ruta.toString());
+            }
+        });
+    }
+
+    private void eliminarDespuesDelCommit(String ruta) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                limpiarSinInterrumpir(ruta);
+            }
+        });
+    }
+
+    private void limpiarSinInterrumpir(String ruta) {
+        if (ruta == null) return;
+        Path archivo = Paths.get(ruta).toAbsolutePath().normalize();
+        if (!archivo.startsWith(directorioArchivos)) return;
+        try {
+            Files.deleteIfExists(archivo);
+        } catch (IOException exception) {
+            log.warn("No se pudo limpiar el archivo de resumen {}", archivo, exception);
         }
+    }
 
-        return archivo.getContentType();
+    @Transactional
+    public void eliminarResumen(Long idUsuario, Long idResumen) {
+        exigirPropietario(idUsuario);
+        Resumen resumen = buscarResumen(idUsuario, idResumen);
+        eliminarDespuesDelCommit(resumen.getRutaArchivo());
+        resumenRepository.delete(resumen);
     }
 }

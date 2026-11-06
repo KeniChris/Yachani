@@ -1,183 +1,366 @@
 package com.yachaniapi.grupoestudio.service;
 
-import com.yachaniapi.grupoestudio.dto.GrupoEstudioDTO;
+import com.yachaniapi.grupoestudio.dto.request.*;
+import com.yachaniapi.grupoestudio.dto.response.*;
 import com.yachaniapi.grupoestudio.entity.GrupoEstudio;
 import com.yachaniapi.grupoestudio.entity.SolicitudGrupo;
+import com.yachaniapi.grupoestudio.entity.TipoGrupo;
+import com.yachaniapi.grupoestudio.exception.ConflictoGrupoException;
 import com.yachaniapi.grupoestudio.exception.GrupoEstudioExceptions.*;
+import com.yachaniapi.grupoestudio.mapper.GrupoEstudioMapper;
 import com.yachaniapi.grupoestudio.repository.GrupoEstudioRepository;
 import com.yachaniapi.grupoestudio.repository.SolicitudGrupoRepository;
+import com.yachaniapi.notificacion.service.NotificacionService;
 import com.yachaniapi.usuario.entity.Estudiante;
 import com.yachaniapi.usuario.entity.Tutor;
 import com.yachaniapi.usuario.entity.Usuario;
 import com.yachaniapi.usuario.exception.UsuarioNoEncontradoException;
 import com.yachaniapi.usuario.exception.UsuarioNoEsEstudianteException;
 import com.yachaniapi.usuario.repository.UsuarioRepository;
-import jakarta.transaction.Transactional;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Expression;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.text.Normalizer;
 
 @Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class GrupoEstudioService {
+
+    private static final int MAX_GRUPOS_TUTOR = 10;
+    private static final int MAX_GRUPOS_ESTUDIANTE = 5;
+    private static final Set<String> ORDEN_GRUPOS = Set.of(
+            "idGrupo", "nombre", "metodoEstudio", "capacidadMaxima", "tipoGrupo"
+    );
+    private static final Set<String> ORDEN_SOLICITUDES = Set.of(
+            "idSolicitud", "fechaSolicitud"
+    );
 
     private final GrupoEstudioRepository grupoRepository;
     private final SolicitudGrupoRepository solicitudRepository;
     private final UsuarioRepository usuarioRepository;
-
-    public GrupoEstudioService(
-            GrupoEstudioRepository grupoRepository,
-            SolicitudGrupoRepository solicitudRepository,
-            UsuarioRepository usuarioRepository) {
-        this.grupoRepository = grupoRepository;
-        this.solicitudRepository = solicitudRepository;
-        this.usuarioRepository = usuarioRepository;
-    }
+    private final NotificacionService notificacionService;
+    private final GrupoEstudioMapper mapper;
+    private final ReglasGrupoService reglas;
+    private final com.yachaniapi.usuario.service.UsuarioActualService usuarioActual;
+    private final AccesoGrupoService acceso;
 
     @Transactional
-    public GrupoEstudioDTO.Response crearGrupo(GrupoEstudioDTO.CrearRequest request) {
-        Usuario usuario = usuarioRepository.findById(request.getIdTutor())
-                .orElseThrow(() -> new UsuarioNoEncontradoException("Tutor no encontrado"));
-
-        if (!(usuario instanceof Tutor tutor)) {
-            throw new IllegalArgumentException("El usuario debe ser un Tutor para crear grupos");
-        }
-
-        GrupoEstudio grupo = new GrupoEstudio();
-        grupo.setNombre(request.getNombre().trim());
-        grupo.setDescripcion(request.getDescripcion().trim());
-        grupo.setMetodoEstudio(request.getMetodoEstudio().trim());
-        grupo.setCapacidadMaxima(request.getCapacidadMaxima());
-        grupo.setEstado("Activo");
-        grupo.setCreador(tutor);
-
-        GrupoEstudio guardado = grupoRepository.save(grupo);
-        return toResponse(guardado, "Grupo creado correctamente");
-    }
-
-    @Transactional
-    public GrupoEstudioDTO.Response actualizarCapacidad(Long idGrupo, GrupoEstudioDTO.EditarCapacidadRequest request) {
-        GrupoEstudio grupo = grupoRepository.findById(idGrupo)
-                .orElseThrow(() -> new GrupoNoEncontradoException("El grupo de estudio no existe"));
-
-        int actuales = (grupo.getParticipantes() != null) ? grupo.getParticipantes().size() : 0;
-        if (request.getNuevaCapacidad() < actuales) {
-            throw new IllegalArgumentException("El nuevo límite no puede ser menor a los alumnos inscritos (" + actuales + ")");
-        }
-
-        grupo.setCapacidadMaxima(request.getNuevaCapacidad());
-        GrupoEstudio guardado = grupoRepository.save(grupo);
-        return toResponse(guardado, "Capacidad actualizada");
-    }
-
-    @Transactional
-    public GrupoEstudioDTO.SolicitudResponse solicitarUnirse(Long idGrupo, GrupoEstudioDTO.SolicitudRequest request) {
-        GrupoEstudio grupo = grupoRepository.findById(idGrupo)
-                .orElseThrow(() -> new GrupoNoEncontradoException("El grupo de estudio no existe"));
-
-        Usuario usuario = usuarioRepository.findById(request.getIdEstudiante())
+    public GrupoResponse crearGrupo(CrearGrupoRequest request) {
+        Usuario usuario = usuarioActual.exigirPropio(request.idCreador());
+        grupoRepository.bloquearCreador(usuario.getIdUsuario())
                 .orElseThrow(() -> new UsuarioNoEncontradoException("Usuario no encontrado"));
-
-        if (!(usuario instanceof Estudiante estudiante)) {
-            throw new UsuarioNoEsEstudianteException("Solo los estudiantes pueden unirse a los grupos");
+        TipoGrupo tipo;
+        int maximo;
+        if (usuario instanceof Tutor) {
+            tipo = TipoGrupo.TUTOR;
+            maximo = MAX_GRUPOS_TUTOR;
+        } else if (usuario instanceof Estudiante) {
+            tipo = TipoGrupo.ESTUDIANTES;
+            maximo = MAX_GRUPOS_ESTUDIANTE;
+        } else {
+            throw new IllegalArgumentException("Solo tutores o estudiantes pueden crear grupos");
         }
+        if (grupoRepository.countByCreador_IdUsuario(usuario.getIdUsuario()) >= maximo) {
+            throw new ConflictoGrupoException("Alcanzaste el máximo de " + maximo + " grupos");
+        }
+        validarCapacidad(request.capacidadMaxima());
+        GrupoEstudio grupo = mapper.toEntity(request);
+        grupo.setNombre(request.nombre().strip());
+        grupo.setDescripcion(request.descripcion().strip());
+        grupo.setMetodoEstudio(request.metodoEstudio().strip());
+        grupo.setCreador(usuario);
+        grupo.setTipoGrupo(tipo);
+        grupo.setEstado("ACTIVO");
+        grupo.setPermitirPublicaciones(true);
+        if (usuario instanceof Estudiante estudiante) {
+            grupo.getParticipantes().add(estudiante);
+        }
+        return respuesta(grupoRepository.save(grupo), "Grupo creado correctamente");
+    }
 
-        int actuales = (grupo.getParticipantes() != null) ? grupo.getParticipantes().size() : 0;
-        if (actuales >= grupo.getCapacidadMaxima()) {
+    public PaginaResponse<GrupoResponse> listarGrupos(
+            Long idUsuario, String query, String curso, String metodoEstudio,
+            Integer cantidadIntegrantes, TipoGrupo tipoGrupo, Pageable pageable) {
+        validarPaginacion(pageable, ORDEN_GRUPOS);
+        if (idUsuario != null) usuarioActual.exigirPropio(idUsuario);
+        if (cantidadIntegrantes != null && cantidadIntegrantes < 0) {
+            throw new IllegalArgumentException("La cantidad de integrantes no puede ser negativa");
+        }
+        Specification<GrupoEstudio> filtros = (root, consulta, cb) ->
+                cb.equal(root.get("estado"), "ACTIVO");
+        if (idUsuario != null) {
+            filtros = filtros.and((root, consulta, cb) -> {
+                consulta.distinct(true);
+                var participante = root.join("participantes", JoinType.LEFT);
+                return cb.or(
+                        cb.equal(root.get("creador").get("idUsuario"), idUsuario),
+                        cb.equal(participante.get("idUsuario"), idUsuario)
+                );
+            });
+        }
+        for (String texto : new String[]{query, curso}) {
+            if (texto != null && !texto.isBlank()) {
+                String patron = "%" + escaparLike(normalizar(texto)) + "%";
+                filtros = filtros.and((root, consulta, cb) -> cb.or(
+                        cb.like(sinAcentos(cb, root.get("nombre")), patron, '\\'),
+                        cb.like(sinAcentos(cb, root.get("descripcion")), patron, '\\')
+                ));
+            }
+        }
+        if (metodoEstudio != null && !metodoEstudio.isBlank()) {
+            String metodo = normalizar(metodoEstudio);
+            filtros = filtros.and((root, consulta, cb) ->
+                    cb.equal(sinAcentos(cb, root.get("metodoEstudio")), metodo));
+        }
+        if (cantidadIntegrantes != null) {
+            filtros = filtros.and((root, consulta, cb) ->
+                    cb.equal(cb.size(root.get("participantes")), cantidadIntegrantes));
+        }
+        if (tipoGrupo != null) {
+            filtros = filtros.and((root, consulta, cb) -> cb.equal(root.get("tipoGrupo"), tipoGrupo));
+        }
+        return PaginaResponse.desde(grupoRepository.findAll(filtros, pageable)
+                .map(grupo -> respuesta(grupo, null)));
+    }
+
+    public GrupoResponse obtenerGrupo(Long idGrupo) {
+        return respuesta(buscarGrupo(idGrupo), null);
+    }
+
+    @Transactional
+    public GrupoResponse editarNombre(Long idGrupo, EditarNombreGrupoRequest request) {
+        GrupoEstudio grupo = acceso.administrador(idGrupo, true);
+        grupo.setNombre(request.nombre().strip());
+        return respuesta(grupoRepository.save(grupo), "Nombre actualizado");
+    }
+
+    @Transactional
+    public GrupoResponse actualizarCapacidad(Long idGrupo, EditarCapacidadGrupoRequest request) {
+        GrupoEstudio grupo = acceso.administrador(idGrupo, true);
+        validarCapacidad(request.nuevaCapacidad());
+        int actuales = reglas.integrantesActuales(grupo);
+        if (request.nuevaCapacidad() < actuales) {
+            throw new ConflictoGrupoException(
+                    "La capacidad no puede ser menor a los " + actuales + " estudiantes inscritos");
+        }
+        grupo.setCapacidadMaxima(request.nuevaCapacidad());
+        return respuesta(grupoRepository.save(grupo), "Capacidad actualizada");
+    }
+
+    @Transactional
+    public GrupoResponse cambiarPermitirPublicaciones(
+            Long idGrupo, EditarPublicacionesGrupoRequest request) {
+        GrupoEstudio grupo = acceso.administrador(idGrupo, true);
+        if (grupo.getTipoGrupo() != TipoGrupo.TUTOR) {
+            throw new IllegalArgumentException(
+                    "Los grupos entre estudiantes siempre permiten publicar recursos");
+        }
+        if (request.permitirPublicaciones() == null) {
+            throw new IllegalArgumentException("Indica si se permiten publicaciones");
+        }
+        grupo.setPermitirPublicaciones(request.permitirPublicaciones());
+        return respuesta(grupoRepository.save(grupo), "Configuración actualizada");
+    }
+
+    public List<IntegranteGrupoResponse> listarIntegrantes(Long idGrupo) {
+        GrupoEstudio grupo = acceso.miembro(idGrupo, false);
+        Map<Long, Usuario> integrantes = new LinkedHashMap<>();
+        integrantes.put(grupo.getCreador().getIdUsuario(), grupo.getCreador());
+        grupo.getParticipantes().forEach(p -> integrantes.putIfAbsent(p.getIdUsuario(), p));
+        return integrantes.values().stream().map(usuario -> {
+            boolean administrador = reglas.esAdministrador(grupo, usuario.getIdUsuario());
+            String tipo = administrador && grupo.getTipoGrupo() == TipoGrupo.TUTOR
+                    ? "TUTOR" : "ESTUDIANTE";
+            return mapper.toIntegrante(usuario, nombreCompleto(usuario), tipo, administrador);
+        }).toList();
+    }
+
+    @Transactional
+    public void eliminarIntegrante(Long idGrupo, Long idEstudiante) {
+        GrupoEstudio grupo = acceso.administrador(idGrupo, true);
+        if (reglas.esAdministrador(grupo, idEstudiante)) {
+            throw new ConflictoGrupoException("No se puede eliminar al creador del grupo");
+        }
+        boolean eliminado = grupo.getParticipantes()
+                .removeIf(p -> p.getIdUsuario().equals(idEstudiante));
+        if (!eliminado) {
+            throw new IntegranteNoEncontradoException("El estudiante no pertenece a este grupo");
+        }
+        grupoRepository.save(grupo);
+    }
+
+    @Transactional
+    public SolicitudGrupoResponse solicitarUnirse(Long idGrupo, SolicitudGrupoRequest request) {
+        GrupoEstudio grupo = bloquearGrupo(idGrupo);
+        usuarioActual.exigirPropio(request.idEstudiante());
+        Estudiante estudiante = usuarioActual.estudianteActual();
+        if (reglas.esIntegrante(grupo, estudiante.getIdUsuario())) {
+            throw new ConflictoGrupoException("Ya perteneces a este grupo");
+        }
+        var anterior = solicitudRepository.findByGrupo_IdGrupoAndEstudiante_IdUsuario(
+                idGrupo, estudiante.getIdUsuario());
+        if (anterior.filter(s -> "PENDIENTE".equals(s.getEstado())).isPresent()) {
+            throw new ConflictoGrupoException("Ya tienes una solicitud pendiente para el grupo");
+        }
+        if (reglas.cuposDisponibles(grupo) == 0) {
             throw new GrupoLlenoException("El grupo ya alcanzó su capacidad máxima");
         }
-
-        if (grupo.getParticipantes().contains(estudiante)) {
-            throw new IllegalArgumentException("El estudiante ya es miembro del grupo");
-        }
-
-        if (solicitudRepository.existsByGrupo_IdGrupoAndEstudiante_IdUsuario(idGrupo, estudiante.getIdUsuario())) {
-            throw new IllegalArgumentException("El estudiante ya envió una solicitud a este grupo");
-        }
-
+        // La pareja grupo/estudiante es única. Se reemplaza la petición anterior
+        // conservando las notificaciones y se confirma el DELETE antes del INSERT.
+        anterior.ifPresent(s -> {
+            notificacionService.desvincularDeSolicitud(s.getIdSolicitud());
+            solicitudRepository.delete(s);
+            solicitudRepository.flush();
+        });
         SolicitudGrupo solicitud = new SolicitudGrupo();
         solicitud.setGrupo(grupo);
         solicitud.setEstudiante(estudiante);
         solicitud.setEstado("PENDIENTE");
-
         SolicitudGrupo guardada = solicitudRepository.save(solicitud);
-        System.out.println("Enviando notificación: Solicitud de " + estudiante.getNombres() + " al grupo " + grupo.getNombre());
-        return toSolicitudResponse(guardada, "Solicitud enviada correctamente");
+        notificacionService.notificarSolicitudRecibida(guardada);
+        return mapper.toSolicitud(guardada, "Solicitud enviada correctamente");
     }
 
     @Transactional
-    public GrupoEstudioDTO.SolicitudResponse aceptarSolicitud(Long idSolicitud) {
-        SolicitudGrupo solicitud = solicitudRepository.findById(idSolicitud)
-                .orElseThrow(() -> new SolicitudNoEncontradaException("La solicitud no existe"));
-
-        if (!"PENDIENTE".equals(solicitud.getEstado())) {
-            throw new IllegalArgumentException("La solicitud ya fue procesada");
+    public SolicitudGrupoResponse aceptarSolicitud(Long idSolicitud) {
+        GrupoEstudio grupo = bloquearGrupoDeSolicitud(idSolicitud);
+        SolicitudGrupo solicitud = buscarSolicitudPendiente(idSolicitud);
+        if (reglas.esIntegrante(grupo, solicitud.getEstudiante().getIdUsuario())) {
+            throw new ConflictoGrupoException("El estudiante ya pertenece al grupo");
         }
-
-        GrupoEstudio grupo = solicitud.getGrupo();
-        int actuales = (grupo.getParticipantes() != null) ? grupo.getParticipantes().size() : 0;
-        if (actuales >= grupo.getCapacidadMaxima()) {
-            throw new GrupoLlenoException("Grupo lleno, no se pueden aceptar más solicitudes");
+        if (reglas.cuposDisponibles(grupo) == 0) {
+            throw new GrupoLlenoException("El grupo ya alcanzó su capacidad máxima");
         }
-
-        solicitud.setEstado("ACEPTADA");
-        solicitudRepository.save(solicitud);
         grupo.getParticipantes().add(solicitud.getEstudiante());
+        solicitud.setEstado("ACEPTADA");
         grupoRepository.save(grupo);
-        System.out.println("Enviando notificación: Solicitud aceptada para el grupo " + grupo.getNombre());
-        return toSolicitudResponse(solicitud, "Solicitud aceptada");
+        notificacionService.notificarSolicitudAceptada(solicitud);
+        SolicitudGrupoResponse respuesta = mapper.toSolicitud(solicitud, "Solicitud aceptada");
+        notificacionService.desvincularDeSolicitud(idSolicitud);
+        solicitudRepository.delete(solicitud);
+        return respuesta;
     }
 
     @Transactional
-    public GrupoEstudioDTO.SolicitudResponse rechazarSolicitud(Long idSolicitud) {
-        SolicitudGrupo solicitud = solicitudRepository.findById(idSolicitud)
-                .orElseThrow(() -> new SolicitudNoEncontradaException("La solicitud no existe"));
-
-        if (!"PENDIENTE".equals(solicitud.getEstado())) {
-            throw new IllegalArgumentException("La solicitud ya fue procesada");
-        }
-
+    public SolicitudGrupoResponse rechazarSolicitud(Long idSolicitud) {
+        bloquearGrupoDeSolicitud(idSolicitud);
+        SolicitudGrupo solicitud = buscarSolicitudPendiente(idSolicitud);
         solicitud.setEstado("RECHAZADA");
         solicitudRepository.save(solicitud);
-        System.out.println("Enviando notificación: Solicitud rechazada para el grupo " + solicitud.getGrupo().getNombre());
-        return toSolicitudResponse(solicitud, "Solicitud rechazada");
+        notificacionService.notificarSolicitudRechazada(solicitud);
+        return mapper.toSolicitud(solicitud, "Solicitud rechazada");
     }
 
-    public List<GrupoEstudioDTO.Response> buscarGrupos(String keyword) {
-        if (keyword == null || keyword.trim().isEmpty()) {
-            throw new IllegalArgumentException("Ingrese un curso o tema");
+    public PaginaResponse<SolicitudPendienteResponse> listarSolicitudesPendientes(
+            Long idGrupo, Pageable pageable) {
+        validarPaginacion(pageable, ORDEN_SOLICITUDES);
+        acceso.administrador(idGrupo, false);
+        return PaginaResponse.desde(solicitudRepository
+                .findByGrupo_IdGrupoAndEstado(idGrupo, "PENDIENTE", pageable)
+                .map(s -> mapper.toPendiente(s, nombreCompleto(s.getEstudiante()))));
+    }
+
+    public PaginaResponse<SolicitudPropiaResponse> listarMisSolicitudes(
+            Long idEstudiante, Pageable pageable) {
+        validarPaginacion(pageable, ORDEN_SOLICITUDES);
+        idEstudiante = usuarioActual.exigirPropio(idEstudiante).getIdUsuario();
+        if (!(buscarUsuario(idEstudiante) instanceof Estudiante)) {
+            throw new UsuarioNoEsEstudianteException("Solo los estudiantes tienen solicitudes de ingreso");
         }
-        return grupoRepository.findByKeyword(keyword.trim()).stream()
-                .map(g -> toResponse(g, "Búsqueda completada"))
-                .collect(Collectors.toList());
+        return PaginaResponse.desde(solicitudRepository
+                .findByEstudiante_IdUsuarioAndEstadoNot(idEstudiante, "ACEPTADA", pageable)
+                .map(mapper::toPropia));
     }
 
-    public List<GrupoEstudioDTO.Response> filtrarGrupos(String curso, String metodoEstudio, Integer cantidadIntegrantes) {
-        return grupoRepository.findByFiltros(curso, metodoEstudio, cantidadIntegrantes).stream()
-                .map(g -> toResponse(g, "Filtrado completado"))
-                .collect(Collectors.toList());
+    private static String normalizar(String texto) {
+        return Normalizer.normalize(texto.strip(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "").toLowerCase(Locale.ROOT);
     }
 
-    private GrupoEstudioDTO.Response toResponse(GrupoEstudio grupo, String mensaje) {
-        int actuales = (grupo.getParticipantes() != null) ? grupo.getParticipantes().size() : 0;
-        return new GrupoEstudioDTO.Response(
-                grupo.getIdGrupo(),
-                grupo.getNombre(),
-                grupo.getDescripcion(),
-                grupo.getMetodoEstudio(),
-                grupo.getCapacidadMaxima(),
-                actuales,
-                grupo.getEstado(),
-                mensaje
+    private static Expression<String> sinAcentos(CriteriaBuilder cb, Expression<String> texto) {
+        // PostgreSQL translate no requiere extensiones. Se filtra ANTES de paginar
+        // y solo se crean predicados para parámetros presentes (sin LOWER de nulos).
+        return cb.function("translate", String.class, cb.lower(cb.trim(texto)),
+                cb.literal("áàäâãåéèëêíìïîóòöôõúùüûñçýÿ"),
+                cb.literal("aaaaaaeeeeiiiiooooouuuuncyy"));
+    }
+
+    private Usuario buscarUsuario(Long idUsuario) {
+        return usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new UsuarioNoEncontradoException("Usuario no encontrado"));
+    }
+
+    private GrupoEstudio buscarGrupo(Long idGrupo) {
+        return grupoRepository.findById(idGrupo)
+                .orElseThrow(() -> new GrupoNoEncontradoException("El grupo de estudio no existe"));
+    }
+
+    private GrupoEstudio bloquearGrupo(Long idGrupo) {
+        GrupoEstudio grupo = grupoRepository.buscarConBloqueo(idGrupo)
+                .orElseThrow(() -> new GrupoNoEncontradoException("El grupo de estudio no existe"));
+        if (!"ACTIVO".equals(grupo.getEstado())) {
+            throw new ConflictoGrupoException("El grupo no está activo");
+        }
+        return grupo;
+    }
+
+    private GrupoEstudio bloquearGrupoDeSolicitud(Long idSolicitud) {
+        Long idGrupo = solicitudRepository.buscarIdGrupo(idSolicitud)
+                .orElseThrow(() -> new SolicitudNoEncontradaException("La solicitud no existe"));
+        return acceso.administrador(idGrupo, true);
+    }
+
+    private SolicitudGrupo buscarSolicitudPendiente(Long idSolicitud) {
+        SolicitudGrupo solicitud = solicitudRepository.findById(idSolicitud)
+                .orElseThrow(() -> new SolicitudNoEncontradaException("La solicitud no existe"));
+        if (!"PENDIENTE".equals(solicitud.getEstado())) {
+            throw new ConflictoGrupoException("La solicitud ya fue procesada");
+        }
+        return solicitud;
+    }
+
+    private GrupoResponse respuesta(GrupoEstudio grupo, String mensaje) {
+        return mapper.toResponse(
+                grupo, reglas.integrantesActuales(grupo), reglas.cuposDisponibles(grupo),
+                reglas.publicacionesAbiertas(grupo), nombreCompleto(grupo.getCreador()),
+                grupo.getTipoGrupo() == TipoGrupo.TUTOR ? "TUTOR" : "ESTUDIANTE", mensaje
         );
     }
 
-    private GrupoEstudioDTO.SolicitudResponse toSolicitudResponse(SolicitudGrupo solicitud, String mensaje) {
-        return new GrupoEstudioDTO.SolicitudResponse(
-                solicitud.getIdSolicitud(),
-                solicitud.getGrupo().getIdGrupo(),
-                solicitud.getEstado(),
-                mensaje
-        );
+    private void validarCapacidad(Integer capacidad) {
+        if (capacidad == null || capacidad < 2) {
+            throw new IllegalArgumentException("La capacidad mínima es de 2 estudiantes");
+        }
+    }
+
+    private void validarPaginacion(Pageable pageable, Set<String> campos) {
+        if (pageable == null || pageable.isUnpaged() || pageable.getPageSize() > 100) {
+            throw new IllegalArgumentException("Usa páginas de entre 1 y 100 registros");
+        }
+        pageable.getSort().forEach(orden -> {
+            if (!campos.contains(orden.getProperty())) {
+                throw new IllegalArgumentException("Campo de ordenamiento no permitido: " + orden.getProperty());
+            }
+        });
+    }
+
+    private String nombreCompleto(Usuario usuario) {
+        return usuario.getNombres() + " " + usuario.getApellidos();
+    }
+
+    private String escaparLike(String texto) {
+        return texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 }

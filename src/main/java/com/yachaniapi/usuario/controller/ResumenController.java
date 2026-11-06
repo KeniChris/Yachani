@@ -107,9 +107,17 @@ public class ResumenController {
                 .contentType(tipoContenido)
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
-                        "inline; filename=\"" +
-                                respuesta.getNombreArchivo() + "\""
+                        org.springframework.http.ContentDisposition.inline()
+                                .filename(respuesta.getNombreArchivo(), java.nio.charset.StandardCharsets.UTF_8)
+                                .build().toString()
                 )
                 .body(respuesta.getArchivo());
+    }
+
+    @DeleteMapping("/{idResumen}")
+    public ResponseEntity<Void> eliminarResumen(
+            @PathVariable Long idUsuario, @PathVariable Long idResumen) {
+        resumenService.eliminarResumen(idUsuario, idResumen);
+        return ResponseEntity.noContent().build();
     }
 }

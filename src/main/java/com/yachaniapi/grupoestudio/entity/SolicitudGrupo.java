@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(
         name = "solicitudes_grupo",
@@ -34,4 +36,14 @@ public class SolicitudGrupo {
 
     @Column(nullable = false, length = 20)
     private String estado;
+
+    @Column(name = "fecha_solicitud", nullable = false, updatable = false)
+    private LocalDateTime fechaSolicitud;
+
+    @PrePersist
+    public void asignarFechaSolicitud() {
+        if (fechaSolicitud == null) {
+            fechaSolicitud = LocalDateTime.now();
+        }
+    }
 }

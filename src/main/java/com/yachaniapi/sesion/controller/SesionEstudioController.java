@@ -50,7 +50,7 @@ public class SesionEstudioController {
     public ResponseEntity<SesionResponse> cancelarSesion(
             @PathVariable Long idGrupo,
             @PathVariable Long idSesion,
-            @RequestParam Long idTutor) {
+            @RequestParam(required = false) Long idTutor) {
 
         return ResponseEntity.ok(sesionService.cancelarSesion(idGrupo, idSesion, idTutor));
     }

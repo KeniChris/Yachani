@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface TarjetaFlashcardRepository
         extends JpaRepository<TarjetaFlashcard, Long> {
 
+    //Lista las tarjetas activas de un mazo ordenadas por su orden y su identificador.
     List<TarjetaFlashcard>
     findByMazo_IdMazoAndActivaTrueOrderByOrdenAscIdTarjetaAsc(
             Long idMazo

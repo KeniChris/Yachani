@@ -1,161 +1,65 @@
 package com.yachaniapi.usuario.service;
 
-import com.yachaniapi.usuario.dto.LoginRequest;
-import com.yachaniapi.usuario.dto.RegistroRequest;
-import com.yachaniapi.usuario.dto.UsuarioResponse;
-import com.yachaniapi.usuario.entity.Estudiante;
-import com.yachaniapi.usuario.entity.Tutor;
-import com.yachaniapi.usuario.entity.Usuario;
+import com.yachaniapi.usuario.dto.*;
+import com.yachaniapi.usuario.entity.*;
 import com.yachaniapi.usuario.exception.CorreoDuplicadoException;
 import com.yachaniapi.usuario.exception.CredencialesIncorrectasException;
 import com.yachaniapi.usuario.mapper.UsuarioMapper;
 import com.yachaniapi.usuario.repository.UsuarioRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 @Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AuthService {
-
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final UsuarioMapper usuarioMapper;
+    private final JwtService jwtService;
+    private final UsuarioActualService usuarioActual;
 
-    public AuthService(
-            UsuarioRepository usuarioRepository,
-            PasswordEncoder passwordEncoder,
-            UsuarioMapper usuarioMapper) {
-
-        this.usuarioRepository = usuarioRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.usuarioMapper = usuarioMapper;
-    }
-
-    /**
-     * Registra un estudiante o tutor en la plataforma.
-     */
+    @Transactional
     public UsuarioResponse registrar(RegistroRequest request) {
-
-        validarRegistro(request);
-
-        String correo = request.getCorreo()
-                .trim()
-                .toLowerCase();
-
-        // Evita registrar dos cuentas con el mismo correo.
+        validarContrasena(request.getContrasena());
+        String correo = request.getCorreo().strip().toLowerCase(Locale.ROOT);
         if (usuarioRepository.existsByCorreoIgnoreCase(correo)) {
-            throw new CorreoDuplicadoException(
-                    "El correo ya está registrado"
-            );
+            throw new CorreoDuplicadoException("El correo ya está registrado");
         }
-
-        Usuario usuario;
-
-        // Crea la entidad según el tipo de usuario seleccionado.
-        if ("ESTUDIANTE".equalsIgnoreCase(request.getTipoUsuario())) {
-            usuario = new Estudiante();
-
-        } else if ("TUTOR".equalsIgnoreCase(request.getTipoUsuario())) {
-            usuario = new Tutor();
-
-        } else {
-            throw new IllegalArgumentException(
-                    "El tipo de usuario debe ser ESTUDIANTE o TUTOR"
-            );
-        }
-
-        usuario.setNombres(request.getNombres().trim());
-        usuario.setApellidos(request.getApellidos().trim());
+        Usuario usuario = switch (request.getTipoUsuario().strip().toUpperCase(Locale.ROOT)) {
+            case "ESTUDIANTE" -> new Estudiante();
+            case "TUTOR" -> new Tutor();
+            default -> throw new IllegalArgumentException("El tipo de usuario debe ser ESTUDIANTE o TUTOR");
+        };
+        usuario.setNombres(request.getNombres().strip());
+        usuario.setApellidos(request.getApellidos().strip());
         usuario.setCorreo(correo);
-
-        // La contraseña se guarda cifrada mediante BCrypt.
-        usuario.setContrasenaHash(
-                passwordEncoder.encode(request.getContrasena())
-        );
-
-        Usuario usuarioGuardado = usuarioRepository.save(usuario);
-
-        return usuarioMapper.toResponse(
-                usuarioGuardado,
-                "Usuario registrado correctamente"
-        );
+        usuario.setContrasenaHash(passwordEncoder.encode(request.getContrasena()));
+        return usuarioMapper.toResponse(usuarioRepository.save(usuario), "Usuario registrado correctamente");
     }
 
-    /**
-     * Comprueba el correo y la contraseña del usuario.
-     */
-    public UsuarioResponse iniciarSesion(LoginRequest request) {
-
-        if (request == null
-                || estaVacio(request.getCorreo())
-                || estaVacio(request.getContrasena())) {
-
-            throw new IllegalArgumentException(
-                    "El correo y la contraseña son obligatorios"
-            );
-        }
-
-        String correo = request.getCorreo()
-                .trim()
-                .toLowerCase();
-
-        Usuario usuario = usuarioRepository
-                .findByCorreoIgnoreCase(correo)
-                .orElseThrow(() ->
-                        new CredencialesIncorrectasException(
-                                "Correo o contraseña incorrectos"
-                        )
-                );
-
-        boolean contrasenaCorrecta = passwordEncoder.matches(
-                request.getContrasena(),
-                usuario.getContrasenaHash()
-        );
-
-        if (!contrasenaCorrecta) {
-            throw new CredencialesIncorrectasException(
-                    "Correo o contraseña incorrectos"
-            );
-        }
-
-        return usuarioMapper.toResponse(
-                usuario,
-                "Inicio de sesión correcto"
-        );
+    public LoginResponse iniciarSesion(LoginRequest request) {
+        String correo = request.getCorreo().strip().toLowerCase(Locale.ROOT);
+        Usuario usuario = usuarioRepository.findByCorreoIgnoreCase(correo)
+                .filter(u -> passwordEncoder.matches(request.getContrasena(), u.getContrasenaHash()))
+                .orElseThrow(() -> new CredencialesIncorrectasException("Correo o contraseña incorrectos"));
+        return new LoginResponse(usuarioMapper.toResponse(usuario, "Inicio de sesión correcto"),
+                jwtService.generar(usuario), jwtService.segundosDeValidez());
     }
 
-    /**
-     * Valida los campos necesarios para registrar una cuenta.
-     */
-    private void validarRegistro(RegistroRequest request) {
-
-        if (request == null
-                || estaVacio(request.getNombres())
-                || estaVacio(request.getApellidos())
-                || estaVacio(request.getCorreo())
-                || estaVacio(request.getContrasena())
-                || estaVacio(request.getTipoUsuario())) {
-
-            throw new IllegalArgumentException(
-                    "Todos los campos son obligatorios"
-            );
-        }
-
-        String correo = request.getCorreo()
-                .trim()
-                .toLowerCase();
-
-        // Solo permite correos institucionales de la UPC.
-        if (!correo.matches("^[A-Za-z0-9._%+-]+@upc\\.edu\\.pe$")) {
-            throw new IllegalArgumentException(
-                    "El correo debe pertenecer al dominio @upc.edu.pe"
-            );
-        }
+    public UsuarioResponse consultarActual() {
+        return usuarioMapper.toResponse(usuarioActual.obtener(), "Usuario autenticado");
     }
 
-    /**
-     * Comprueba si un texto es nulo o está vacío.
-     */
-    private boolean estaVacio(String valor) {
-        return valor == null || valor.isBlank();
+    private void validarContrasena(String contrasena) {
+        if (contrasena == null || contrasena.length() < 8
+                || contrasena.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("La contraseña requiere al menos 8 caracteres y hasta 72 bytes");
+        }
     }
 }

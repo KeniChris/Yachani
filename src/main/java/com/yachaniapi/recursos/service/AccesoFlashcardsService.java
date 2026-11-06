@@ -5,42 +5,20 @@ import com.yachaniapi.recursos.entity.*;
 import com.yachaniapi.recursos.exception.FlashcardsException;
 import com.yachaniapi.recursos.repository.*;
 import com.yachaniapi.usuario.entity.Usuario;
-import com.yachaniapi.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class AccesoFlashcardsService {
 
-    private final UsuarioRepository usuarios;
+    private final com.yachaniapi.usuario.service.UsuarioActualService usuarioActualService;
     private final MazoFlashcardsRepository mazos;
     private final MazoCompartidoRepository compartidos;
 
     public Usuario usuarioActual() {
-        var autenticacion = SecurityContextHolder
-                .getContext()
-                .getAuthentication();
-
-        if (autenticacion == null
-                || !autenticacion.isAuthenticated()
-                || autenticacion instanceof AnonymousAuthenticationToken) {
-
-            throw new FlashcardsException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Inicia sesión para acceder a las flashcards"
-            );
-        }
-
-        return usuarios.findByCorreoIgnoreCase(
-                autenticacion.getName()
-        ).orElseThrow(() -> new FlashcardsException(
-                HttpStatus.UNAUTHORIZED,
-                "El usuario autenticado no existe"
-        ));
+        return usuarioActualService.obtener();
     }
 
     public MazoFlashcards buscar(

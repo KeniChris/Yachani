@@ -34,7 +34,8 @@ public class PerfilAcademicoMapper {
                 estudiante.getModalidadPreferida(),
                 estudiante.getMetodoPreferido(),
                 new ArrayList<>(estudiante.getTemasInteres()),
-                conocimientosResponse
+                conocimientosResponse,
+                estudiante.isConfiguracionCompletada()
         );
     }
 

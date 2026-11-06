@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@org.springframework.security.access.prepost.PreAuthorize("hasRole('ESTUDIANTE')")
 @RequestMapping("/estudiantes/{idUsuario}/perfil")
 public class PerfilAcademicoController {
 
@@ -103,5 +104,19 @@ public class PerfilAcademicoController {
                         request
                 )
         );
+    }
+
+    @DeleteMapping("/conocimientos/{idConocimiento}")
+    public ResponseEntity<Void> eliminarConocimiento(
+            @PathVariable Long idUsuario, @PathVariable Long idConocimiento) {
+        perfilAcademicoService.eliminarConocimiento(idUsuario, idConocimiento);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/publico")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
+    public ResponseEntity<com.yachaniapi.usuario.dto.PerfilEstudiantePublicoResponse> consultarPublico(
+            @PathVariable Long idUsuario) {
+        return ResponseEntity.ok(perfilAcademicoService.consultarPublico(idUsuario));
     }
 }

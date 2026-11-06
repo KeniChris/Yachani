@@ -19,10 +19,16 @@ public class TutorService {
 
     private final UsuarioRepository usuarioRepository;
     private final TutorMapper tutorMapper;
+    private final UsuarioActualService usuarioActual;
+    private final EstadoConfiguracionService estadoConfiguracion;
 
     public TutorService(
             UsuarioRepository usuarioRepository,
-            TutorMapper tutorMapper) {
+            TutorMapper tutorMapper,
+            UsuarioActualService usuarioActual,
+            EstadoConfiguracionService estadoConfiguracion) {
+        this.usuarioActual = usuarioActual;
+        this.estadoConfiguracion = estadoConfiguracion;
 
         this.usuarioRepository = usuarioRepository;
         this.tutorMapper = tutorMapper;
@@ -57,6 +63,9 @@ public class TutorService {
                 request.getMetodoEnsenanza().trim()
         );
 
+        if (request.getUniversidad() != null) tutor.setUniversidad(request.getUniversidad().strip());
+        if (request.getCarrera() != null) tutor.setCarrera(request.getCarrera().strip());
+        estadoConfiguracion.actualizar(tutor);
         Tutor tutorGuardado = usuarioRepository.save(tutor);
 
         return tutorMapper.toResponse(tutorGuardado);
@@ -67,6 +76,7 @@ public class TutorService {
      */
     private Tutor buscarTutor(Long idUsuario) {
 
+        usuarioActual.exigirPropio(idUsuario);
         Usuario usuario = usuarioRepository.findById(idUsuario)
                 .orElseThrow(() ->
                         new UsuarioNoEncontradoException(

@@ -13,6 +13,7 @@ import java.util.Optional;
 public interface MazoFlashcardsRepository
         extends JpaRepository<MazoFlashcards, Long> {
 
+    //Lista los mazos de un usuario por identificador descendente
     List<MazoFlashcards> findByCreador_IdUsuarioOrderByIdMazoDesc(
             Long idUsuario
     );
