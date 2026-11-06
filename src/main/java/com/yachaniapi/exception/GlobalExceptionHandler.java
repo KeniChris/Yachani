@@ -23,11 +23,19 @@ import com.yachaniapi.usuario.exception.UsuarioNoEsTutorException;
 import com.yachaniapi.usuario.exception.CodigoRecuperacionInvalidoException;
 import com.yachaniapi.usuario.exception.CodigoRecuperacionExpiradoException;
 import com.yachaniapi.usuario.exception.EnvioCorreoException;
+import com.yachaniapi.contacto.exception.LimiteContactoException;
 
 import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(LimiteContactoException.class)
+    public ResponseEntity<Map<String, String>> manejarLimiteContacto(LimiteContactoException exception) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(exception.getSegundosRestantes()))
+                .body(Map.of("mensaje", exception.getMessage(), "codigo", "LIMITE_CONTACTO"));
+    }
 
     @ExceptionHandler(ConflictoGrupoException.class)
     public ResponseEntity<Map<String, String>> manejarConflictoGrupo(
