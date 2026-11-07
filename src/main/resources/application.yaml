@@ -25,10 +25,14 @@ spring:
     port: 587
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
     properties:
       mail:
         smtp:
           auth: true
+          connectiontimeout: 5000
+          timeout: 10000
+          writetimeout: 10000
           starttls:
             enable: true
             required: true
@@ -56,5 +60,7 @@ yachani:
     minutos-antes: 60
 
 app:
+  contacto:
+    destinatario: ${CONTACT_MAIL_TO:yachani.soporte@gmail.com}
   cors:
     allowed-origins: http://localhost:4200

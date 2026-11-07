@@ -15,8 +15,34 @@ public class CorreoService {
     @Value("${spring.mail.username}")
     private String correoRemitente;
 
+    @Value("${app.contacto.destinatario:yachani.soporte@gmail.com}")
+    private String destinatarioContacto;
+
     public CorreoService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
+    }
+
+    /** Envía la consulta al equipo; las respuestas se dirigen al correo del visitante. */
+    public void enviarContacto(String nombre, String correo, String asunto, String texto) {
+        String error = "No fue posible enviar tu mensaje. Inténtalo de nuevo más tarde.";
+        if (correoRemitente == null || correoRemitente.isBlank()
+                || destinatarioContacto == null || destinatarioContacto.isBlank()) {
+            throw new EnvioCorreoException(error);
+        }
+        try {
+            SimpleMailMessage mensaje = new SimpleMailMessage();
+            mensaje.setFrom(correoRemitente);
+            mensaje.setTo(destinatarioContacto);
+            mensaje.setReplyTo(correo);
+            mensaje.setSubject("[Contacto Yachani] " + asunto);
+            mensaje.setText("Consulta recibida desde la página de Yachani.\n\n"
+                    + "Nombre: " + nombre + "\n"
+                    + "Correo: " + correo + "\n\n"
+                    + texto);
+            mailSender.send(mensaje);
+        } catch (MailException exception) {
+            throw new EnvioCorreoException(error);
+        }
     }
 
     /**
